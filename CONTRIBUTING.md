@@ -20,6 +20,21 @@ The bar for changes here:
 - **New guards need both tests**: one screen that must trigger the guard, and one that must not.
 - **`decide()` stays pure.** Screen text and prior state in, verdict out — no tmux, no clock, no disk. All I/O lives in `src/run.js`. This is what makes the safety rules testable.
 
+## Testing by hand
+
+`npm test` fakes tmux, so it never touches a running server. If you test against
+a real one, give it its own socket:
+
+```sh
+tmux -L cckeep-test new-session -d -s probe
+CCKEEP_HOME=$(mktemp -d) CCKEEP_TMUX=... node bin/cckeep.js status
+tmux -L cckeep-test kill-server     # only kills the test server
+```
+
+Without `-L`, `tmux kill-server` takes down **every** session on your default
+server — including the Claude Code session you were in the middle of. Ask how we
+know.
+
 ## Ground rules
 
 - Node ≥18, standard library only — a runtime dependency needs a very good reason
