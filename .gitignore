@@ -4,3 +4,4 @@ node_modules/
 
 # internal launch notes, not part of the published project
 .launch/
+launch-drafts.md
