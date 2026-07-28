@@ -15,6 +15,19 @@ const CANDIDATES = [
 
 let cached;
 
+/**
+ * tmux runs one server per socket. Anyone using `tmux -L name` or `-S path` has
+ * their panes on a different server, and without this cckeep silently watches
+ * the wrong one — it reports "no panes" while the sessions are right there.
+ * It also makes cckeep testable against a throwaway server instead of the one
+ * holding your real conversations.
+ */
+export function socketArgs(socketOverride) {
+  const socket = socketOverride ?? process.env.CCKEEP_TMUX_SOCKET;
+  if (!socket) return [];
+  return socket.includes('/') ? ['-S', socket] : ['-L', socket];
+}
+
 export function tmuxPath() {
   if (cached) return cached;
   const fromEnv = process.env.CCKEEP_TMUX;
@@ -31,7 +44,7 @@ function tmux(args, { allowFail = true } = {}) {
   const bin = tmuxPath();
   if (!bin) return null;
   try {
-    return execFileSync(bin, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return execFileSync(bin, [...socketArgs(), ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   } catch (err) {
     if (allowFail) return null;
     throw err;

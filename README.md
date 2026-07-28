@@ -174,8 +174,9 @@ Defaults are tuned so you never notice it. Override in `~/.cckeep/config.json`, 
 - `missLimit` — checks with no indicator before re-arming a pane that had one
 - `settle` — milliseconds between the two captures of the idle check; raise it on a slow machine
 - `paneCommand` — foreground process name that marks a pane as Claude Code
+- `tmuxSocket` — socket name or path, if your tmux runs on something other than the default server (`tmux -L name` / `-S path`). Empty means the default
 
-Every key has an env twin: `CCKEEP_INTERVAL`, `CCKEEP_COOLDOWN`, `CCKEEP_STUCK_LIMIT`, `CCKEEP_MISS_LIMIT`, `CCKEEP_SETTLE`, `CCKEEP_PANE_COMMAND`. `CCKEEP_HOME` moves state, config and log off `~/.cckeep`.
+Every key has an env twin: `CCKEEP_INTERVAL`, `CCKEEP_COOLDOWN`, `CCKEEP_STUCK_LIMIT`, `CCKEEP_MISS_LIMIT`, `CCKEEP_SETTLE`, `CCKEEP_PANE_COMMAND`, `CCKEEP_TMUX_SOCKET`. `CCKEEP_HOME` moves state, config and log off `~/.cckeep`.
 
 ## Scope
 

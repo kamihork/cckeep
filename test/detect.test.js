@@ -262,3 +262,21 @@ test('the disconnect notification is still read from the wider footer', () => {
   assert.equal(readScreen(screen).failed, true);
   assert.equal(decide({ screen }).action, 'rearm');
 });
+
+
+test('an indicator still reads through trailing blank rows', () => {
+  // capture-pane returns the whole pane, so a UI that does not fill it leaves
+  // the bottom padded. Scanning the last N rows would scan only padding.
+  const padded = footerWith('/rc active') + '\n'.repeat(18);
+  assert.equal(readScreen(padded).connected, true);
+});
+
+test('a disconnect notice reads through trailing blank rows too', () => {
+  const padded = ['Remote Control disconnected', '> '].join('\n') + '\n'.repeat(18);
+  assert.equal(readScreen(padded).failed, true);
+});
+
+test('a pane that is genuinely empty reads as nothing', () => {
+  assert.equal(readScreen('\n'.repeat(24)).connected, false);
+  assert.equal(readScreen('').connected, false);
+});

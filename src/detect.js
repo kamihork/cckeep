@@ -85,7 +85,16 @@ function readIndicator(lines, window = INDICATOR_LINES) {
 }
 
 export function readScreen(screen, footerLines = FOOTER_LINES) {
-  const lines = String(screen).split('\n');
+  // `capture-pane` returns the whole pane, blank rows included, so a UI that
+  // does not fill the pane leaves the bottom padded with empty lines. Scanning
+  // the last N lines would then scan nothing but padding and see no indicator
+  // at all — a silent failure. Measure the footer from the last row that has
+  // something on it.
+  const all = String(screen).split('\n');
+  let end = all.length;
+  while (end > 0 && all[end - 1].trim() === '') end -= 1;
+  const lines = all.slice(0, end);
+
   const footer = lines.slice(Math.max(0, lines.length - footerLines)).join('\n');
   const indicator = readIndicator(lines);
 

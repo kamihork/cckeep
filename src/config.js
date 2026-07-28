@@ -13,6 +13,8 @@ export const BASE = {
   keyDelay: 1000,
   /** Foreground process name that marks a pane as Claude Code. */
   paneCommand: 'claude',
+  /** tmux socket name or path, for anyone not on the default server. */
+  tmuxSocket: '',
 };
 
 const NUMERIC = new Set(['stuckLimit', 'missLimit', 'cooldown', 'interval', 'settle', 'keyDelay']);
@@ -25,6 +27,7 @@ const ENV = {
   CCKEEP_SETTLE: 'settle',
   CCKEEP_KEY_DELAY: 'keyDelay',
   CCKEEP_PANE_COMMAND: 'paneCommand',
+  CCKEEP_TMUX_SOCKET: 'tmuxSocket',
 };
 
 export function configPath() {

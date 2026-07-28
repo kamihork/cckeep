@@ -170,8 +170,9 @@ Ctrl+B の衝突については何もしなくて構いません。Claude Code �
 - `missLimit`: 以前は表示があったペインが、何回続けて無表示なら繋ぎ直すか
 - `settle`: 静止判定に使う2回のキャプチャの間隔(ミリ秒)。遅いマシンでは増やしてください
 - `paneCommand`: Claude Code のペインだと判定するフォアグラウンドプロセス名
+- `tmuxSocket`: 既定以外のサーバーで tmux を動かしている場合のソケット名またはパス(`tmux -L name` / `-S path`)。空なら既定サーバー
 
-どの項目にも環境変数版があります。`CCKEEP_INTERVAL`、`CCKEEP_COOLDOWN`、`CCKEEP_STUCK_LIMIT`、`CCKEEP_MISS_LIMIT`、`CCKEEP_SETTLE`、`CCKEEP_PANE_COMMAND` です。`CCKEEP_HOME` を指定すれば、状態・設定・ログの置き場所を `~/.cckeep` 以外に移せます。
+どの項目にも環境変数版があります。`CCKEEP_INTERVAL`、`CCKEEP_COOLDOWN`、`CCKEEP_STUCK_LIMIT`、`CCKEEP_MISS_LIMIT`、`CCKEEP_SETTLE`、`CCKEEP_PANE_COMMAND`、`CCKEEP_TMUX_SOCKET` です。`CCKEEP_HOME` を指定すれば、状態・設定・ログの置き場所を `~/.cckeep` 以外に移せます。
 
 ## 適用範囲
 

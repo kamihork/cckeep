@@ -27,13 +27,17 @@ a real one, give it its own socket:
 
 ```sh
 tmux -L cckeep-test new-session -d -s probe
-CCKEEP_HOME=$(mktemp -d) CCKEEP_TMUX=... node bin/cckeep.js status
-tmux -L cckeep-test kill-server     # only kills the test server
+CCKEEP_HOME=$(mktemp -d) CCKEEP_TMUX_SOCKET=cckeep-test node bin/cckeep.js status
+tmux -L cckeep-test kill-session -t "=probe"   # by name; never kill-server
 ```
 
-Without `-L`, `tmux kill-server` takes down **every** session on your default
-server — including the Claude Code session you were in the middle of. Ask how we
-know.
+`CCKEEP_TMUX_SOCKET` points cckeep at that throwaway server, so nothing it does
+can reach the sessions you are working in.
+
+Never run `tmux kill-server` at all, with or without `-L`. It takes down
+**every** session on that server, and a mistyped or unset socket makes "that
+server" the default one — including the Claude Code session you were in the
+middle of. Kill sessions you created, by exact name. Ask how we know.
 
 ## Ground rules
 
