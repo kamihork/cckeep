@@ -376,8 +376,9 @@ const I18N = {
   },
 };
 
-let lang = localStorage.getItem('cckeep.lp.lang')
-  || (/^ja/i.test(navigator.language || '') ? 'ja' : 'en');
+// English by default regardless of browser locale — a first-time visitor should
+// always land on the same page. The toggle is still remembered once used.
+let lang = localStorage.getItem('cckeep.lp.lang') || 'en';
 
 function apply() {
   const d = I18N[lang];
