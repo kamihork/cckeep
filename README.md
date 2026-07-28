@@ -203,6 +203,8 @@ Claude Code paints a Remote Control indicator in its footer: `/rc active` when c
 
 Finding those panes takes one extra step: Claude Code rewrites its own process title, so tmux reports such a pane as `2.1.220` rather than `claude`. Matching the name tmux reports therefore finds nothing on a real machine. cckeep checks the process table as well, and treats a pane as Claude Code's when the pane's process — or anything it spawned — is actually `claude`.
 
+Where it looks matters as much as what it looks for. The state indicators are read from the last dozen lines only, because the words themselves turn up in ordinary conversation — a session where you happen to discuss `/rc active` would otherwise read as connected. Dialog and status-panel detection deliberately scans the whole pane instead: a false positive there costs one skipped pass, while a miss costs a keystroke in the wrong place.
+
 The decision layer (`src/detect.js`) is a pure function of screen text plus prior state, which is why the safety rules can be tested exhaustively without a terminal. The runner (`src/run.js`) does the I/O: the idle check, the last-moment re-check, and the keystrokes.
 
 None of this is a published API — the indicator strings are UI text and can change. When they do, cckeep stops acting rather than acting wrongly: a pane it cannot read looks "never connected", and panes it has never seen connected are never touched.
