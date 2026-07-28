@@ -4,10 +4,10 @@ import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const LABEL = 'io.github.kamihork.agenttether';
+export const LABEL = 'io.github.kamihork.cckeep';
 
 function cliPath() {
-  return fileURLToPath(new URL('../bin/agenttether.js', import.meta.url));
+  return fileURLToPath(new URL('../bin/cckeep.js', import.meta.url));
 }
 
 function nodePath() {
@@ -24,7 +24,7 @@ export function systemdDir() {
 
 export function renderPlist({ interval, node = nodePath(), cli = cliPath(), home }) {
   const env = home
-    ? `    <key>EnvironmentVariables</key>\n    <dict>\n        <key>AGENTTETHER_HOME</key>\n        <string>${home}</string>\n    </dict>\n`
+    ? `    <key>EnvironmentVariables</key>\n    <dict>\n        <key>CCKEEP_HOME</key>\n        <string>${home}</string>\n    </dict>\n`
     : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -51,7 +51,7 @@ ${env}</dict>
 
 export function renderSystemdService({ node = nodePath(), cli = cliPath() }) {
   return `[Unit]
-Description=agenttether — keep Claude Code Remote Control alive
+Description=cckeep — keep Claude Code Remote Control alive
 
 [Service]
 Type=oneshot
@@ -61,7 +61,7 @@ ExecStart=${node} ${cli} once
 
 export function renderSystemdTimer({ interval }) {
   return `[Unit]
-Description=agenttether — keep Claude Code Remote Control alive
+Description=cckeep — keep Claude Code Remote Control alive
 
 [Timer]
 OnBootSec=${interval}s
@@ -87,7 +87,7 @@ export function install({ interval }) {
   if (os === 'darwin') {
     const p = plistPath();
     mkdirSync(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true });
-    writeFileSync(p, renderPlist({ interval, home: process.env.AGENTTETHER_HOME }));
+    writeFileSync(p, renderPlist({ interval, home: process.env.CCKEEP_HOME }));
     const uid = process.getuid();
     run('launchctl', ['bootout', `gui/${uid}/${LABEL}`]);
     const ok = run('launchctl', ['bootstrap', `gui/${uid}`, p]);
@@ -96,10 +96,10 @@ export function install({ interval }) {
   if (os === 'linux') {
     const dir = systemdDir();
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'agenttether.service'), renderSystemdService({}));
-    writeFileSync(join(dir, 'agenttether.timer'), renderSystemdTimer({ interval }));
+    writeFileSync(join(dir, 'cckeep.service'), renderSystemdService({}));
+    writeFileSync(join(dir, 'cckeep.timer'), renderSystemdTimer({ interval }));
     run('systemctl', ['--user', 'daemon-reload']);
-    const ok = run('systemctl', ['--user', 'enable', '--now', 'agenttether.timer']);
+    const ok = run('systemctl', ['--user', 'enable', '--now', 'cckeep.timer']);
     return { kind: 'systemd', path: dir, ok };
   }
   return { kind: 'unsupported', path: null, ok: false };
@@ -115,8 +115,8 @@ export function uninstall() {
   }
   if (os === 'linux') {
     const dir = systemdDir();
-    run('systemctl', ['--user', 'disable', '--now', 'agenttether.timer']);
-    for (const f of ['agenttether.timer', 'agenttether.service']) {
+    run('systemctl', ['--user', 'disable', '--now', 'cckeep.timer']);
+    for (const f of ['cckeep.timer', 'cckeep.service']) {
       const p = join(dir, f);
       if (existsSync(p)) unlinkSync(p);
     }
@@ -129,6 +129,6 @@ export function uninstall() {
 export function isInstalled() {
   const os = platform();
   if (os === 'darwin') return existsSync(plistPath());
-  if (os === 'linux') return existsSync(join(systemdDir(), 'agenttether.timer'));
+  if (os === 'linux') return existsSync(join(systemdDir(), 'cckeep.timer'));
   return false;
 }

@@ -1,10 +1,10 @@
 {
-  "name": "agenttether",
+  "name": "cckeep",
   "version": "0.1.0",
   "description": "Keeps Claude Code Remote Control from silently going dead. Re-arms the sessions its 31-second retry budget gives up on — local, tmux-native, zero dependencies.",
   "type": "module",
   "bin": {
-    "agenttether": "bin/agenttether.js"
+    "cckeep": "bin/cckeep.js"
   },
   "main": "src/detect.js",
   "files": [
@@ -34,11 +34,11 @@
   "author": "kamihork <kmihoken@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kamihork/agenttether.git"
+    "url": "git+https://github.com/kamihork/cckeep.git"
   },
-  "homepage": "https://github.com/kamihork/agenttether#readme",
+  "homepage": "https://github.com/kamihork/cckeep#readme",
   "bugs": {
-    "url": "https://github.com/kamihork/agenttether/issues"
+    "url": "https://github.com/kamihork/cckeep/issues"
   },
   "license": "MIT"
 }

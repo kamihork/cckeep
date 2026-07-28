@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>agenttether — keep Claude Code Remote Control from silently going dead</title>
-<meta name="description" content="Remote Control retries for about 31 seconds and then gives up for good. agenttether notices and re-arms the session — without ever typing into one that's busy. Local, tmux-native, zero dependencies.">
+<title>cckeep — keep Claude Code Remote Control from silently going dead</title>
+<meta name="description" content="Remote Control retries for about 31 seconds and then gives up for good. cckeep notices and re-arms the session — without ever typing into one that's busy. Local, tmux-native, zero dependencies.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="agenttether — keep Claude Code Remote Control from silently going dead">
-<meta property="og:description" content="Remote Control gives up after ~31 seconds. agenttether re-arms the session — never typing into one that's busy. npx agenttether install.">
-<meta property="og:image" content="https://kamihork.github.io/agenttether/assets/social-preview.png">
+<meta property="og:title" content="cckeep — keep Claude Code Remote Control from silently going dead">
+<meta property="og:description" content="Remote Control gives up after ~31 seconds. cckeep re-arms the session — never typing into one that's busy. npx cckeep install.">
+<meta property="og:image" content="https://kamihork.github.io/cckeep/assets/social-preview.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
-<meta property="og:image:alt" content="agenttether — keeps Claude Code Remote Control from silently going dead">
-<meta property="og:url" content="https://kamihork.github.io/agenttether/">
+<meta property="og:image:alt" content="cckeep — keeps Claude Code Remote Control from silently going dead">
+<meta property="og:url" content="https://kamihork.github.io/cckeep/">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="agenttether — keep Claude Code Remote Control from silently going dead">
-<meta name="twitter:description" content="Remote Control gives up after ~31 seconds. agenttether re-arms the session — never typing into one that's busy. npx agenttether install.">
-<meta name="twitter:image" content="https://kamihork.github.io/agenttether/assets/social-preview.png">
+<meta name="twitter:title" content="cckeep — keep Claude Code Remote Control from silently going dead">
+<meta name="twitter:description" content="Remote Control gives up after ~31 seconds. cckeep re-arms the session — never typing into one that's busy. npx cckeep install.">
+<meta name="twitter:image" content="https://kamihork.github.io/cckeep/assets/social-preview.png">
 <link rel="icon" type="image/png" href="assets/logo.png">
 <style>
   :root {
@@ -27,7 +27,7 @@
     --muted: #898781;
     --border: rgba(255, 255, 255, 0.10);
     --grid: #2c2c2a;
-    --accent: #1f9d8f;      /* the tether teal */
+    --accent: #1f9d8f;      /* the keep-alive teal */
     --accent-hi: #3dc9b8;
     --blue: #3987e5;
     --green: #199e70;
@@ -158,21 +158,21 @@
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="#"><img src="assets/logo.png" alt="">agenttether</a>
+    <a class="brand" href="#"><img src="assets/logo.png" alt="">cckeep</a>
     <div class="spacer"></div>
-    <a class="nl" href="https://github.com/kamihork/agenttether">GitHub</a>
-    <a class="nl" href="https://www.npmjs.com/package/agenttether">npm</a>
+    <a class="nl" href="https://github.com/kamihork/cckeep">GitHub</a>
+    <a class="nl" href="https://www.npmjs.com/package/cckeep">npm</a>
     <button id="lang" aria-label="Language">日本語</button>
   </nav>
 
   <header class="hero">
-    <img class="mark" src="assets/logo.png" alt="agenttether logo">
+    <img class="mark" src="assets/logo.png" alt="cckeep logo">
     <h1 data-i18n="h1">Your session is still running.<br><em>Your phone doesn't know.</em></h1>
-    <p class="sub" data-i18n="sub">Claude Code Remote Control retries for about 31 seconds and then gives up for good. agenttether notices, and re-arms the session — without ever typing into one that's busy.</p>
-    <div class="install mono"><span class="dollar">$</span><span id="cmd">npx agenttether install</span><button id="copy" data-i18n="copy">Copy</button></div>
+    <p class="sub" data-i18n="sub">Claude Code Remote Control retries for about 31 seconds and then gives up for good. cckeep notices, and re-arms the session — without ever typing into one that's busy.</p>
+    <div class="install mono"><span class="dollar">$</span><span id="cmd">npx cckeep install</span><button id="copy" data-i18n="copy">Copy</button></div>
     <div class="ctas">
-      <a class="btn primary" href="https://github.com/kamihork/agenttether" data-i18n="ctaGh">View on GitHub</a>
-      <a class="btn ghost" href="https://github.com/kamihork/agenttether/blob/main/README.md" id="ctaDocs" data-i18n="ctaDocs">README</a>
+      <a class="btn primary" href="https://github.com/kamihork/cckeep" data-i18n="ctaGh">View on GitHub</a>
+      <a class="btn ghost" href="https://github.com/kamihork/cckeep/blob/main/README.md" id="ctaDocs" data-i18n="ctaDocs">README</a>
     </div>
     <p class="zeroes" data-i18n="zeroes"><b>Zero dependencies</b> · <b>zero cloud</b> · <b>zero telemetry</b> — it reads your tmux panes and nothing leaves the machine.</p>
 
@@ -207,7 +207,7 @@
     <div class="featgrid">
       <div class="feat"><div class="ico">⏸️</div><div class="t" data-i18n="s1t">Never during a turn</div><p data-i18n="s1">The pane is captured twice, two seconds apart. A running turn animates a spinner and a token counter — identical captures mean nothing is happening, different ones mean hands off.</p></div>
       <div class="feat"><div class="ico">🚧</div><div class="t" data-i18n="s2t">Never into a dialog</div><p data-i18n="s2">Permission prompts turn Enter into a selection. If a selection marker is on screen, the pass is skipped entirely.</p></div>
-      <div class="feat"><div class="ico">📱</div><div class="t" data-i18n="s3t">Never into your panel</div><p data-i18n="s3">/remote-control opens a status panel with a QR code. agenttether presses Enter there only when it opened the panel itself.</p></div>
+      <div class="feat"><div class="ico">📱</div><div class="t" data-i18n="s3t">Never into your panel</div><p data-i18n="s3">/remote-control opens a status panel with a QR code. cckeep presses Enter there only when it opened the panel itself.</p></div>
       <div class="feat"><div class="ico">🔕</div><div class="t" data-i18n="s4t">Never a session you turned off</div><p data-i18n="s4">Only panes seen connected at least once are ever chased. Disable Remote Control deliberately and it stays off.</p></div>
       <div class="feat"><div class="ico">🧊</div><div class="t" data-i18n="s5t">Never in a tight loop</div><p data-i18n="s5">One action per pane per five minutes, so a genuinely broken link can't turn into a stream of keystrokes.</p></div>
       <div class="feat"><div class="ico">🔁</div><div class="t" data-i18n="s6t">Re-checked at the last moment</div><p data-i18n="s6">The decision is made from one capture, then re-verified after the wait. Reconnected in between? Dialog appeared? Nothing is sent.</p></div>
@@ -219,7 +219,7 @@
     <h2 class="sec" data-i18n="stateH">What it watches for.</h2>
     <div class="tablewrap">
       <table>
-        <thead><tr><th data-i18n="th1">State on screen</th><th data-i18n="th2">What it means</th><th data-i18n="th3">What agenttether does</th></tr></thead>
+        <thead><tr><th data-i18n="th1">State on screen</th><th data-i18n="th2">What it means</th><th data-i18n="th3">What cckeep does</th></tr></thead>
         <tbody>
           <tr><td class="state"><code>/rc active</code></td><td data-i18n="r1a">connected</td><td data-i18n="r1b">remembers the pane, nothing else</td></tr>
           <tr><td class="state"><code>/rc reconnecting</code></td><td data-i18n="r2a">inside the 31-second budget</td><td data-i18n="r2b">waits — this usually resolves on its own</td></tr>
@@ -235,12 +235,12 @@
   <section>
     <h2 class="sec" data-i18n="cmdH">One command away.</h2>
     <div class="cmds"><pre>
-<span class="k">agenttether</span> install       <span class="c" data-i18n="c1"># launchd on macOS, systemd user timer on Linux</span>
-<span class="k">agenttether</span>               <span class="c" data-i18n="c2"># what it sees right now — changes nothing</span>
-<span class="k">agenttether</span> watch         <span class="c" data-i18n="c3"># run in the foreground instead of scheduling</span>
-<span class="k">agenttether</span> doctor        <span class="c" data-i18n="c4"># tmux, panes, scheduler, paths</span>
-<span class="k">agenttether</span> logs          <span class="c" data-i18n="c5"># what it has done</span>
-<span class="k">agenttether</span> uninstall     <span class="c" data-i18n="c6"># remove the background job</span></pre></div>
+<span class="k">cckeep</span> install       <span class="c" data-i18n="c1"># launchd on macOS, systemd user timer on Linux</span>
+<span class="k">cckeep</span>               <span class="c" data-i18n="c2"># what it sees right now — changes nothing</span>
+<span class="k">cckeep</span> watch         <span class="c" data-i18n="c3"># run in the foreground instead of scheduling</span>
+<span class="k">cckeep</span> doctor        <span class="c" data-i18n="c4"># tmux, panes, scheduler, paths</span>
+<span class="k">cckeep</span> logs          <span class="c" data-i18n="c5"># what it has done</span>
+<span class="k">cckeep</span> uninstall     <span class="c" data-i18n="c6"># remove the background job</span></pre></div>
 
     <div class="note">
       <div class="t" data-i18n="noteT">One requirement: Claude Code has to run inside tmux.</div>
@@ -251,17 +251,17 @@
 
   <section>
     <h2 class="sec" data-i18n="scopeH">The best outcome is that this becomes unnecessary.</h2>
-    <p class="seclead" data-i18n="scopeLead">agenttether re-arms a connection. It can't raise Claude Code's retry budget — that's a constant inside a closed-source binary, and only Anthropic can change it. If <a href="https://github.com/anthropics/claude-code/issues/34255">#34255</a> gets fixed, the right move is to archive this repo. Until then, a 👍 over there is worth more than a ⭐ here.</p>
+    <p class="seclead" data-i18n="scopeLead">cckeep re-arms a connection. It can't raise Claude Code's retry budget — that's a constant inside a closed-source binary, and only Anthropic can change it. If <a href="https://github.com/anthropics/claude-code/issues/34255">#34255</a> gets fixed, the right move is to archive this repo. Until then, a 👍 over there is worth more than a ⭐ here.</p>
   </section>
 
   <!-- Hidden automatically if star-history.com can't render the chart —
        a broken-image icon is worse than no section. -->
   <section id="starSection">
     <h2 class="sec" data-i18n="starH">Star history</h2>
-    <a class="starhist" href="https://www.star-history.com/#kamihork/agenttether&Date">
+    <a class="starhist" href="https://www.star-history.com/#kamihork/cckeep&Date">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=kamihork/agenttether&type=Date&theme=dark">
-        <img alt="Star history chart" src="https://api.star-history.com/svg?repos=kamihork/agenttether&type=Date" loading="lazy"
+        <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=kamihork/cckeep&type=Date&theme=dark">
+        <img alt="Star history chart" src="https://api.star-history.com/svg?repos=kamihork/cckeep&type=Date" loading="lazy"
              onerror="document.getElementById('starSection').style.display='none'">
       </picture>
     </a>
@@ -270,9 +270,9 @@
   <footer>
     <span>MIT © <a href="https://github.com/kamihork">kamihork</a></span>
     <span class="spacer"></span>
-    <a href="https://github.com/kamihork/agenttether">GitHub</a>
-    <a href="https://www.npmjs.com/package/agenttether">npm</a>
-    <a href="https://github.com/kamihork/agenttether/blob/main/README.ja.md">日本語 README</a>
+    <a href="https://github.com/kamihork/cckeep">GitHub</a>
+    <a href="https://www.npmjs.com/package/cckeep">npm</a>
+    <a href="https://github.com/kamihork/cckeep/blob/main/README.ja.md">日本語 README</a>
     <a href="https://kamihork.github.io/agentfdr/">agentfdr</a>
   </footer>
 </div>
@@ -283,7 +283,7 @@ const I18N = {
   en: {
     langBtn: '日本語',
     h1Raw: "Your session is still running.<br><em>Your phone doesn't know.</em>",
-    sub: "Claude Code Remote Control retries for about 31 seconds and then gives up for good. agenttether notices, and re-arms the session — without ever typing into one that's busy.",
+    sub: "Claude Code Remote Control retries for about 31 seconds and then gives up for good. cckeep notices, and re-arms the session — without ever typing into one that's busy.",
     copy: 'Copy', copied: 'Copied',
     ctaGh: 'View on GitHub', ctaDocs: 'README',
     zeroesRaw: '<b>Zero dependencies</b> · <b>zero cloud</b> · <b>zero telemetry</b> — it reads your tmux panes and nothing leaves the machine.',
@@ -300,13 +300,13 @@ const I18N = {
     safeLead: "A watchdog that types into your terminal on a timer is a liability unless it's certain the moment is safe. Every rule below is enforced and tested.",
     s1t: 'Never during a turn', s1: 'The pane is captured twice, two seconds apart. A running turn animates a spinner and a token counter — identical captures mean nothing is happening, different ones mean hands off.',
     s2t: 'Never into a dialog', s2: 'Permission prompts turn Enter into a selection. If a selection marker is on screen, the pass is skipped entirely.',
-    s3t: 'Never into your panel', s3: '/remote-control opens a status panel with a QR code. agenttether presses Enter there only when it opened the panel itself.',
+    s3t: 'Never into your panel', s3: '/remote-control opens a status panel with a QR code. cckeep presses Enter there only when it opened the panel itself.',
     s4t: 'Never a session you turned off', s4: 'Only panes seen connected at least once are ever chased. Disable Remote Control deliberately and it stays off.',
     s5t: 'Never in a tight loop', s5: "One action per pane per five minutes, so a genuinely broken link can't turn into a stream of keystrokes.",
     s6t: 'Re-checked at the last moment', s6: 'The decision is made from one capture, then re-verified after the wait. Reconnected in between? Dialog appeared? Nothing is sent.',
     safeTailRaw: '<code>--dry-run</code> prints exactly what it would do and sends nothing. Run it for a day before you trust it.',
     stateH: 'What it watches for.',
-    th1: 'State on screen', th2: 'What it means', th3: 'What agenttether does',
+    th1: 'State on screen', th2: 'What it means', th3: 'What cckeep does',
     r1a: 'connected', r1b: 'remembers the pane, nothing else',
     r2a: 'inside the 31-second budget', r2b: 'waits — this usually resolves on its own',
     r3x: '· 2 min', r3a: 'wedged (#34255)', r3b: 'cycles the bridge: opens the panel, disconnects, reconnects',
@@ -324,13 +324,13 @@ const I18N = {
     noteP1: "A session started in a bare terminal can't be reached from another process — there's no channel to type into, so no tool can help it. Restarting the process isn't an alternative: that ends the conversation, which is the thing you were trying to save.",
     noteP2Raw: 'The README has a drop-in shell function that wraps interactive launches only, so <code>claude update</code> and <code>claude -p</code> keep behaving normally.',
     scopeH: 'The best outcome is that this becomes unnecessary.',
-    scopeLeadRaw: "agenttether re-arms a connection. It can't raise Claude Code's retry budget — that's a constant inside a closed-source binary, and only Anthropic can change it. If <a href=\"https://github.com/anthropics/claude-code/issues/34255\">#34255</a> gets fixed, the right move is to archive this repo. Until then, a 👍 over there is worth more than a ⭐ here.",
+    scopeLeadRaw: "cckeep re-arms a connection. It can't raise Claude Code's retry budget — that's a constant inside a closed-source binary, and only Anthropic can change it. If <a href=\"https://github.com/anthropics/claude-code/issues/34255\">#34255</a> gets fixed, the right move is to archive this repo. Until then, a 👍 over there is worth more than a ⭐ here.",
     starH: 'Star history',
   },
   ja: {
     langBtn: 'English',
     h1Raw: 'セッションはまだ動いている。<br><em>スマホがそれを知らないだけ。</em>',
-    sub: 'Claude Code のリモートコントロールは約31秒で再試行を諦め、二度と戻りません。agenttether はそれを検知して繋ぎ直します — 作業中のセッションには決して打ち込まずに。',
+    sub: 'Claude Code のリモートコントロールは約31秒で再試行を諦め、二度と戻りません。cckeep はそれを検知して繋ぎ直します — 作業中のセッションには決して打ち込まずに。',
     copy: 'コピー', copied: 'コピーしました',
     ctaGh: 'GitHub を見る', ctaDocs: 'README',
     zeroesRaw: '<b>依存ゼロ</b> · <b>クラウドなし</b> · <b>テレメトリなし</b> — tmux ペインを読むだけで、何もマシンの外に出ません。',
@@ -347,13 +347,13 @@ const I18N = {
     safeLead: 'タイマーでターミナルに文字を打ち込むツールは、「いま安全か」を確実に判断できない限り危険物です。以下はすべて実装され、テストされています。',
     s1t: 'ターン実行中は打たない', s1: 'ペインを2秒あけて2回キャプチャします。実行中はスピナーとトークンカウンタが動くので、一致すれば何も起きていない証拠、違えば手を出しません。',
     s2t: 'ダイアログには打たない', s2: '権限プロンプトでは Enter が「選択」になります。選択マーカーが画面にあれば、その回はまるごとスキップします。',
-    s3t: 'あなたのパネルには打たない', s3: '/remote-control は QR コード付きのステータスパネルを開きます。agenttether が Enter を押すのは、自分で開いたときだけです。',
+    s3t: 'あなたのパネルには打たない', s3: '/remote-control は QR コード付きのステータスパネルを開きます。cckeep が Enter を押すのは、自分で開いたときだけです。',
     s4t: '自分で切ったものは戻さない', s4: '一度でも接続済みだったペインだけを追跡します。意図的に切ったものは切れたままです。',
     s5t: '連打しない', s5: '1ペインにつき5分に1回まで。本当に壊れた接続がキー入力の洪水に変わることはありません。',
     s6t: '直前にもう一度確認する', s6: '判断は1回のキャプチャで下し、待機後に再確認します。その間に復帰していたら? ダイアログが出ていたら? 何も送りません。',
     safeTailRaw: '<code>--dry-run</code> は「何をするつもりか」だけを表示して一切送信しません。信頼する前に1日走らせてみてください。',
     stateH: '何を見ているか。',
-    th1: '画面の状態', th2: '意味', th3: 'agenttether の動作',
+    th1: '画面の状態', th2: '意味', th3: 'cckeep の動作',
     r1a: '接続中', r1b: 'ペインを記憶するだけ',
     r2a: '31秒の予算内', r2b: '待つ — たいていこれで直る',
     r3x: '· 2分継続', r3a: '固着 (#34255)', r3b: 'パネルを開いて切断し、張り直す',
@@ -371,12 +371,12 @@ const I18N = {
     noteP1: '素のターミナルで起動したセッションには、別プロセスから届く経路がありません。入力を送る手段がない以上、どんなツールでも手が出せません。プロセスの再起動は代替になりません — 会話が終わってしまい、守りたかったものそのものを失います。',
     noteP2Raw: 'README に、対話起動だけを包むシェル関数を用意してあります。<code>claude update</code> や <code>claude -p</code> はそのまま素通しします。',
     scopeH: 'これが不要になることが、いちばん良い結末です。',
-    scopeLeadRaw: 'agenttether がするのは接続の張り直しだけです。Claude Code の再試行予算は変えられません — クローズドソースのバイナリ内の定数で、変えられるのは Anthropic だけです。<a href="https://github.com/anthropics/claude-code/issues/34255">#34255</a> が修正されたら、このリポジトリはアーカイブするのが正解です。それまでは、ここに ⭐ を付けるより向こうに 👍 を付けるほうが価値があります。',
+    scopeLeadRaw: 'cckeep がするのは接続の張り直しだけです。Claude Code の再試行予算は変えられません — クローズドソースのバイナリ内の定数で、変えられるのは Anthropic だけです。<a href="https://github.com/anthropics/claude-code/issues/34255">#34255</a> が修正されたら、このリポジトリはアーカイブするのが正解です。それまでは、ここに ⭐ を付けるより向こうに 👍 を付けるほうが価値があります。',
     starH: 'Star history',
   },
 };
 
-let lang = localStorage.getItem('agenttether.lp.lang')
+let lang = localStorage.getItem('cckeep.lp.lang')
   || (/^ja/i.test(navigator.language || '') ? 'ja' : 'en');
 
 function apply() {
@@ -394,14 +394,14 @@ function apply() {
 
 document.getElementById('lang').addEventListener('click', () => {
   lang = lang === 'ja' ? 'en' : 'ja';
-  localStorage.setItem('agenttether.lp.lang', lang);
+  localStorage.setItem('cckeep.lp.lang', lang);
   apply();
 });
 
 document.getElementById('copy').addEventListener('click', async () => {
   const btn = document.getElementById('copy');
   try {
-    await navigator.clipboard.writeText('npx agenttether install');
+    await navigator.clipboard.writeText('npx cckeep install');
     btn.textContent = I18N[lang].copied;
   } catch {
     btn.textContent = '✗';

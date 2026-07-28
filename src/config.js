@@ -18,13 +18,13 @@ export const BASE = {
 const NUMERIC = new Set(['stuckLimit', 'missLimit', 'cooldown', 'interval', 'settle', 'keyDelay']);
 
 const ENV = {
-  AGENTTETHER_INTERVAL: 'interval',
-  AGENTTETHER_COOLDOWN: 'cooldown',
-  AGENTTETHER_STUCK_LIMIT: 'stuckLimit',
-  AGENTTETHER_MISS_LIMIT: 'missLimit',
-  AGENTTETHER_SETTLE: 'settle',
-  AGENTTETHER_KEY_DELAY: 'keyDelay',
-  AGENTTETHER_PANE_COMMAND: 'paneCommand',
+  CCKEEP_INTERVAL: 'interval',
+  CCKEEP_COOLDOWN: 'cooldown',
+  CCKEEP_STUCK_LIMIT: 'stuckLimit',
+  CCKEEP_MISS_LIMIT: 'missLimit',
+  CCKEEP_SETTLE: 'settle',
+  CCKEEP_KEY_DELAY: 'keyDelay',
+  CCKEEP_PANE_COMMAND: 'paneCommand',
 };
 
 export function configPath() {

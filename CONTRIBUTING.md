@@ -1,10 +1,10 @@
 # Contributing
 
-Thanks for helping keep sessions tethered. Two areas benefit most from outside contributions.
+Thanks for helping keep sessions connected. Two areas benefit most from outside contributions.
 
 ## 1. Indicator strings (`src/detect.js`)
 
-Detection reads Claude Code's own UI text. That text is not a published API — it changes between versions, and it renders differently in narrow panes, screen-reader mode, and non-English locales. If agenttether misreads a state on your setup, that is the most valuable bug you can report:
+Detection reads Claude Code's own UI text. That text is not a published API — it changes between versions, and it renders differently in narrow panes, screen-reader mode, and non-English locales. If cckeep misreads a state on your setup, that is the most valuable bug you can report:
 
 - paste the relevant lines from `tmux capture-pane -p` (redact your conversation — only the footer and any notification line matter)
 - say which Claude Code version (`claude --version`) and terminal you are on
@@ -12,7 +12,7 @@ Detection reads Claude Code's own UI text. That text is not a published API — 
 
 ## 2. Safety rules (`src/detect.js`, `src/run.js`)
 
-Every rule exists to stop the tool typing into a terminal at the wrong moment. If you can construct a screen where agenttether would act and should not, that is a bug even if it has never happened to you.
+Every rule exists to stop the tool typing into a terminal at the wrong moment. If you can construct a screen where cckeep would act and should not, that is a bug even if it has never happened to you.
 
 The bar for changes here:
 
@@ -29,7 +29,7 @@ The bar for changes here:
 
 ## Scope
 
-agenttether re-arms a connection Claude Code gave up on. It is not a session manager, not a tmux framework, and not an orchestrator. If [anthropics/claude-code#34255](https://github.com/anthropics/claude-code/issues/34255) is fixed upstream, the right move is to archive this, not to grow it.
+cckeep re-arms a connection Claude Code gave up on. It is not a session manager, not a tmux framework, and not an orchestrator. If [anthropics/claude-code#34255](https://github.com/anthropics/claude-code/issues/34255) is fixed upstream, the right move is to archive this, not to grow it.
 
 ## Releasing (maintainers)
 

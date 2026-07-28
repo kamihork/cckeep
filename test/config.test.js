@@ -4,8 +4,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const HOME = mkdtempSync(join(tmpdir(), 'agenttether-config-'));
-process.env.AGENTTETHER_HOME = HOME;
+const HOME = mkdtempSync(join(tmpdir(), 'cckeep-config-'));
+process.env.CCKEEP_HOME = HOME;
 
 const { loadConfig, configPath, BASE } = await import('../src/config.js');
 
@@ -13,7 +13,7 @@ const CONFIG = join(HOME, 'config.json');
 
 beforeEach(() => {
   rmSync(CONFIG, { force: true });
-  for (const k of Object.keys(process.env)) if (k.startsWith('AGENTTETHER_') && k !== 'AGENTTETHER_HOME') delete process.env[k];
+  for (const k of Object.keys(process.env)) if (k.startsWith('CCKEEP_') && k !== 'CCKEEP_HOME') delete process.env[k];
 });
 
 test('defaults apply with no config file', () => {
@@ -31,7 +31,7 @@ test('the config file overrides defaults', () => {
 
 test('environment overrides the config file, and flags override environment', () => {
   writeFileSync(CONFIG, JSON.stringify({ interval: 60 }));
-  process.env.AGENTTETHER_INTERVAL = '30';
+  process.env.CCKEEP_INTERVAL = '30';
   assert.equal(loadConfig().interval, 30);
   assert.equal(loadConfig({ interval: 5 }).interval, 5);
 });
@@ -46,7 +46,7 @@ test('a nonsense threshold is rejected', () => {
   assert.throws(() => loadConfig(), /non-negative number/);
 });
 
-test('configPath sits under AGENTTETHER_HOME', () => {
+test('configPath sits under CCKEEP_HOME', () => {
   assert.equal(configPath(), CONFIG);
 });
 

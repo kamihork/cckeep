@@ -1,20 +1,20 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/kamihork/agenttether/main/assets/logo.png" width="140" height="140" alt="agenttether ロゴ — セッションを繋ぎ止めるテザー">
+  <img src="https://raw.githubusercontent.com/kamihork/cckeep/main/assets/logo.png" width="140" height="140" alt="cckeep ロゴ — 開いたまま保たれるリンク">
 
-  <h1>agenttether</h1>
+  <h1>cckeep</h1>
 
   <p><strong>Claude Code のリモートコントロールが黙って死ぬのを防ぎます。</strong><br>
   リモートコントロールは約31秒で再試行を諦め、二度と戻りません。<br>
-  <code>agenttether</code> はそれを検知して繋ぎ直します — 作業中のセッションには触れずに。</p>
+  <code>cckeep</code> はそれを検知して繋ぎ直します — 作業中のセッションには触れずに。</p>
 
   <p>
-    <a href="https://www.npmjs.com/package/agenttether"><img src="https://img.shields.io/npm/v/agenttether?color=1f9d8f&label=npm" alt="npm version"></a>
-    <a href="https://www.npmjs.com/package/agenttether"><img src="https://img.shields.io/npm/dt/agenttether?color=3987e5" alt="npm downloads"></a>
-    <a href="https://github.com/kamihork/agenttether/actions/workflows/test.yml"><img src="https://github.com/kamihork/agenttether/actions/workflows/test.yml/badge.svg" alt="test status"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/kamihork/agenttether?color=199e70" alt="license"></a>
+    <a href="https://www.npmjs.com/package/cckeep"><img src="https://img.shields.io/npm/v/cckeep?color=1f9d8f&label=npm" alt="npm version"></a>
+    <a href="https://www.npmjs.com/package/cckeep"><img src="https://img.shields.io/npm/dt/cckeep?color=3987e5" alt="npm downloads"></a>
+    <a href="https://github.com/kamihork/cckeep/actions/workflows/test.yml"><img src="https://github.com/kamihork/cckeep/actions/workflows/test.yml/badge.svg" alt="test status"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/kamihork/cckeep?color=199e70" alt="license"></a>
   </p>
 
-  <p><a href="https://kamihork.github.io/agenttether/">Website</a> | <a href="README.md">English</a> | 日本語</p>
+  <p><a href="https://kamihork.github.io/cckeep/">Website</a> | <a href="README.md">English</a> | 日本語</p>
 </div>
 
 ## 何が問題か
@@ -28,7 +28,7 @@
 ## クイックスタート
 
 ```sh
-npx agenttether install
+npx cckeep install
 ```
 
 バックグラウンドジョブを登録します(macOS は launchd、Linux は systemd user timer)。15秒ごとに確認し、死んでいるものを繋ぎ直します。
@@ -36,8 +36,8 @@ npx agenttether install
 条件が一つあります。**Claude Code が tmux の中で動いていること。** 素のターミナルで起動したセッションには別プロセスから入力を送る手段がなく、どんなツールでも手が出せません。→ [tmux で Claude Code を動かす](#tmux-で-claude-code-を動かす)
 
 ```sh
-npx agenttether            # いま何が見えているか(何も変更しません)
-npx agenttether doctor     # tmux・ペイン・スケジューラの確認
+npx cckeep            # いま何が見えているか(何も変更しません)
+npx cckeep doctor     # tmux・ペイン・スケジューラの確認
 ```
 
 > 机に戻る手間が省けたなら、⭐ が同じ問題を抱えている人に届く助けになります。
@@ -48,7 +48,7 @@ npx agenttether doctor     # tmux・ペイン・スケジューラの確認
 
 - **ターン実行中は絶対に打たない。** ペインを2秒あけて2回キャプチャします。実行中はスピナーとトークンカウンタが動くので、2回が一致すれば何も起きていない証拠、違えば手を出さない
 - **ダイアログには打たない。** 権限プロンプトや選択メニューでは Enter が「選択」になります。選択マーカーが画面にあれば、その回はスキップ
-- **あなたが開いたパネルには打たない。** `/remote-control` は QR コード付きのステータスパネルを開きます。agenttether が Enter を押すのは、自分で開いたときだけ
+- **あなたが開いたパネルには打たない。** `/remote-control` は QR コード付きのステータスパネルを開きます。cckeep が Enter を押すのは、自分で開いたときだけ
 - **自分で切ったセッションは戻さない。** 一度でも接続済みだったペインだけを追跡します。意図的に切ったものは切れたまま
 - **連打しない。** 1ペインにつき5分に1回まで
 - **直前に再確認する。** 判断は1回のキャプチャで下し、待機後にもう一度確認します。その間に復帰したりダイアログが出ていれば、何も送りません
@@ -57,7 +57,7 @@ npx agenttether doctor     # tmux・ペイン・スケジューラの確認
 
 ## 何を見ているか
 
-| 画面の状態 | 意味 | agenttether の動作 |
+| 画面の状態 | 意味 | cckeep の動作 |
 |---|---|---|
 | `/rc active` | 接続中 | ペインを記憶するだけ |
 | `/rc reconnecting` | 31秒の予算内 | 待つ(たいていこれで直る) |
@@ -69,20 +69,20 @@ npx agenttether doctor     # tmux・ペイン・スケジューラの確認
 ## コマンド
 
 ```
-agenttether                 # 状態表示: Claude Code のペインごとに1行
-agenttether watch           # スケジュール登録せずフォアグラウンドで実行
-agenttether once            # 1回だけ実行(スケジューラが叩くもの)
-agenttether install         # バックグラウンドジョブを登録
-agenttether uninstall       # 解除
-agenttether doctor          # tmux・ペイン・スケジューラ・各パス
-agenttether logs            # これまでの動作
+cckeep                 # 状態表示: Claude Code のペインごとに1行
+cckeep watch           # スケジュール登録せずフォアグラウンドで実行
+cckeep once            # 1回だけ実行(スケジューラが叩くもの)
+cckeep install         # バックグラウンドジョブを登録
+cckeep uninstall       # 解除
+cckeep doctor          # tmux・ペイン・スケジューラ・各パス
+cckeep logs            # これまでの動作
 ```
 
 オプション: `--dry-run`、`--json`、`--interval <秒>`、`--lang en|ja`(`LANG` から自動判定)。
 
 ## tmux で Claude Code を動かす
 
-agenttether は tmux ペインを読み、そこに入力します。動いている Claude Code セッションに別プロセスから届く経路はこれだけで、だからこそ tmux 内での起動が必要です。プロセスの再起動は代替になりません — 会話が終わってしまい、守りたかったものそのものを失うからです。
+cckeep は tmux ペインを読み、そこに入力します。動いている Claude Code セッションに別プロセスから届く経路はこれだけで、だからこそ tmux 内での起動が必要です。プロセスの再起動は代替になりません — 会話が終わってしまい、守りたかったものそのものを失うからです。
 
 最小の変更は、対話起動だけを包むシェル関数です。`claude update` や `claude doctor`、`claude -p` はそのまま素通しします。
 
@@ -118,7 +118,7 @@ Ctrl+B の衝突は対処不要です。Claude Code は tmux を検出して、�
 
 ## 設定
 
-デフォルトは「存在に気づかない」ことを狙って調整してあります。`~/.agenttether/config.json`、環境変数、実行時フラグの順で上書きされます。壊れた設定ファイルは黙って一部だけ読むのではなく、エラーで停止します。
+デフォルトは「存在に気づかない」ことを狙って調整してあります。`~/.cckeep/config.json`、環境変数、実行時フラグの順で上書きされます。壊れた設定ファイルは黙って一部だけ読むのではなく、エラーで停止します。
 
 ```json
 {
@@ -138,11 +138,11 @@ Ctrl+B の衝突は対処不要です。Claude Code は tmux を検出して、�
 - `settle` — 静止判定の2回のキャプチャ間隔(ミリ秒)。遅いマシンでは増やす
 - `paneCommand` — Claude Code のペインと判定するフォアグラウンドプロセス名
 
-すべてに環境変数版があります: `AGENTTETHER_INTERVAL`、`AGENTTETHER_COOLDOWN`、`AGENTTETHER_STUCK_LIMIT`、`AGENTTETHER_MISS_LIMIT`、`AGENTTETHER_SETTLE`、`AGENTTETHER_PANE_COMMAND`。`AGENTTETHER_HOME` で状態・設定・ログの置き場所を `~/.agenttether` から移せます。
+すべてに環境変数版があります: `CCKEEP_INTERVAL`、`CCKEEP_COOLDOWN`、`CCKEEP_STUCK_LIMIT`、`CCKEEP_MISS_LIMIT`、`CCKEEP_SETTLE`、`CCKEEP_PANE_COMMAND`。`CCKEEP_HOME` で状態・設定・ログの置き場所を `~/.cckeep` から移せます。
 
 ## 適用範囲
 
-agenttether がするのは接続の張り直しだけです。Claude Code の再試行予算そのものは**変えません** — クローズドソースのバイナリ内の定数であり、変えられるのは Anthropic だけです。[#34255](https://github.com/anthropics/claude-code/issues/34255) が修正されればこのツールは不要になります。それが正しい結末です。それまでは、ここに star を付けるより向こうに 👍 を付けるほうが価値があります。
+cckeep がするのは接続の張り直しだけです。Claude Code の再試行予算そのものは**変えません** — クローズドソースのバイナリ内の定数であり、変えられるのは Anthropic だけです。[#34255](https://github.com/anthropics/claude-code/issues/34255) が修正されればこのツールは不要になります。それが正しい結末です。それまでは、ここに star を付けるより向こうに 👍 を付けるほうが価値があります。
 
 設計上、以下は対象外です。
 
@@ -153,27 +153,27 @@ agenttether がするのは接続の張り直しだけです。Claude Code の�
 
 ## プライバシー
 
-agenttether は接続状態を判定するために tmux ペインの表示テキストを読みます。それはあなたの会話です。したがって:
+cckeep は接続状態を判定するために tmux ペインの表示テキストを読みます。それはあなたの会話です。したがって:
 
 - すべてローカルで完結し、このパッケージにネットワークコードはありません
 - テレメトリなし、アカウントなし、外部送信なし
 - ペインのテキストは数個の判定文字列と照合した後すぐ破棄され、ログに残るのはペイン名と判定結果だけです
-- ログは `~/.agenttether/agenttether.log`。`agenttether logs` で表示できます
+- ログは `~/.cckeep/cckeep.log`。`cckeep logs` で表示できます
 
 ## 仕組み
 
-Claude Code はフッターにリモートコントロールの状態を描画します。接続中は `/rc active`、再試行中は `/rc reconnecting`、諦めたときは `Remote Control disconnected` の通知です。agenttether は tmux にフォアグラウンドプロセスが `claude` のペインを問い合わせ、`tmux capture-pane` からこれらを読み取り、ペインごとの小さなカウンタを `~/.agenttether/state.json` に保持します。
+Claude Code はフッターにリモートコントロールの状態を描画します。接続中は `/rc active`、再試行中は `/rc reconnecting`、諦めたときは `Remote Control disconnected` の通知です。cckeep は tmux にフォアグラウンドプロセスが `claude` のペインを問い合わせ、`tmux capture-pane` からこれらを読み取り、ペインごとの小さなカウンタを `~/.cckeep/state.json` に保持します。
 
 判定層(`src/detect.js`)は画面テキストと直前の状態だけを引数に取る純粋関数です。だからこそ安全ルールをターミナル無しで網羅的にテストできます。I/O は実行層(`src/run.js`)が担当します — 静止判定、直前の再確認、キー送信です。
 
-これらは公開 API ではありません。判定文字列は UI テキストであり変わり得ます。変わったとき agenttether は誤動作ではなく沈黙します — 読めないペインは「一度も接続していない」ように見え、接続を見たことがないペインには決して手を出さないためです。
+これらは公開 API ではありません。判定文字列は UI テキストであり変わり得ます。変わったとき cckeep は誤動作ではなく沈黙します — 読めないペインは「一度も接続していない」ように見え、接続を見たことがないペインには決して手を出さないためです。
 
 ## 開発
 
 ```sh
-git clone https://github.com/kamihork/agenttether.git && cd agenttether
+git clone https://github.com/kamihork/cckeep.git && cd cckeep
 npm test                       # 36テスト。ネットワークも tmux も不要
-node bin/agenttether.js doctor
+node bin/cckeep.js doctor
 ```
 
 テストは tmux をフェイクするのでどこでも走ります。コントリビューション歓迎です — 特に、検出が漏れる Claude Code のバージョンやターミナルでの実際の表示文字列が助かります。[CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。

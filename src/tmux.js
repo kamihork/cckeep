@@ -17,7 +17,7 @@ let cached;
 
 export function tmuxPath() {
   if (cached) return cached;
-  const fromEnv = process.env.AGENTTETHER_TMUX;
+  const fromEnv = process.env.CCKEEP_TMUX;
   if (fromEnv && existsSync(fromEnv)) return (cached = fromEnv);
   for (const p of CANDIDATES) if (existsSync(p)) return (cached = p);
   try {

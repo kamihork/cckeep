@@ -4,10 +4,10 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-// State is written under AGENTTETHER_HOME; point it somewhere disposable before
+// State is written under CCKEEP_HOME; point it somewhere disposable before
 // anything imports the state module.
-const HOME = mkdtempSync(join(tmpdir(), 'agenttether-test-'));
-process.env.AGENTTETHER_HOME = HOME;
+const HOME = mkdtempSync(join(tmpdir(), 'cckeep-test-'));
+process.env.CCKEEP_HOME = HOME;
 
 const { runPass } = await import('../src/run.js');
 const { loadConfig } = await import('../src/config.js');

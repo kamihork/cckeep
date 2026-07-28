@@ -4,7 +4,7 @@ import { join, dirname } from 'node:path';
 import { emptyState } from './detect.js';
 
 export function homeDir() {
-  return process.env.AGENTTETHER_HOME || join(homedir(), '.agenttether');
+  return process.env.CCKEEP_HOME || join(homedir(), '.cckeep');
 }
 
 export function statePath() {
@@ -12,7 +12,7 @@ export function statePath() {
 }
 
 export function logPath() {
-  return join(homeDir(), 'agenttether.log');
+  return join(homeDir(), 'cckeep.log');
 }
 
 export function loadState() {

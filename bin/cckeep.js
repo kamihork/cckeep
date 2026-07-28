@@ -8,13 +8,13 @@ import * as tmux from '../src/tmux.js';
 import * as scheduler from '../src/scheduler.js';
 import { pickLang, strings } from '../src/i18n.js';
 
-const HELP = `agenttether — keep Claude Code Remote Control from silently going dead
+const HELP = `cckeep — keep Claude Code Remote Control from silently going dead
 
 USAGE
-  agenttether [command] [options]
+  cckeep [command] [options]
 
 COMMANDS
-  status          what agenttether sees right now (default)
+  status          what cckeep sees right now (default)
   watch           run in the foreground, one pass every --interval seconds
   once            a single pass — what the scheduler runs
   install         register a background job (launchd on macOS, systemd on Linux)
@@ -31,7 +31,7 @@ OPTIONS
   -v, --version   print version
 
 Remote Control retries 5 times over ~31 seconds and then gives up for good.
-agenttether watches tmux panes running Claude Code and types /remote-control
+cckeep watches tmux panes running Claude Code and types /remote-control
 into the ones that went dead — never into one that is busy or showing a dialog.
 `;
 
