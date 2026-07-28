@@ -43,6 +43,16 @@ npx cckeep            # what it sees right now
 npx cckeep doctor     # check tmux, panes, and the scheduler
 ```
 
+**`command not found: cckeep` right after installing?** You are on a shim-based
+version manager. `nodenv` and `rbenv`-style setups need a rehash before a newly
+installed binary appears on `PATH`, and `nvm` needs a new shell:
+
+```sh
+nodenv rehash     # nodenv
+asdf reshim nodejs # asdf
+# nvm: just open a new shell
+```
+
 One requirement: **Claude Code has to be running inside tmux.** A session started in a bare terminal cannot be reached from another process, so there is nothing any tool can do for it. See [Running Claude Code in tmux](#running-claude-code-in-tmux).
 
 > If cckeep saved you a walk back to your desk, a ⭐ helps other Remote Control users find it.

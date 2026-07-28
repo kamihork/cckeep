@@ -43,6 +43,14 @@ npx cckeep            # いま何が見えているか
 npx cckeep doctor     # tmux・ペイン・スケジューラの確認
 ```
 
+**インストール直後に `command not found: cckeep` と出たら**、shim 方式のバージョン管理ツールを使っています。`nodenv` や `asdf` は新しく入った実行ファイルを PATH に出すのに rehash が必要で、`nvm` はシェルを開き直す必要があります。
+
+```sh
+nodenv rehash      # nodenv
+asdf reshim nodejs # asdf
+# nvm: 新しいシェルを開くだけ
+```
+
 条件が一つあります。**Claude Code が tmux の中で動いていること。** 素のターミナルで起動したセッションには別プロセスから入力を送る手段がなく、どんなツールでも手が出せません。→ [tmux で Claude Code を動かす](#tmux-で-claude-code-を動かす)
 
 > 机に戻る手間が省けたなら、⭐ が同じ問題を抱えている人に届く助けになります。
