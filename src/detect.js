@@ -17,6 +17,17 @@ const PANEL = /Disconnect this session|(?:Show|Hide) QR code/;
  */
 const MODAL = /(?:❯|›)\s*(?:\d+\.|Yes|No)|Do you want|\(y\/n\)/;
 
+/**
+ * How many lines from the bottom count as "the footer".
+ *
+ * The indicators live just below the input box, but the words themselves can
+ * appear anywhere in a transcript — a session where you discuss cckeep, or run
+ * it, will have "/rc active" sitting in the conversation body. Matching the
+ * whole pane made such a session look connected, which then armed the
+ * missing-indicator fallback and pointed it at a perfectly healthy session.
+ */
+const FOOTER_LINES = 12;
+
 export const DEFAULTS = {
   /** Consecutive checks stuck in "reconnecting" before we treat the bridge as wedged. */
   stuckLimit: 8,
@@ -34,11 +45,20 @@ export function emptyState() {
  * Reduce a captured pane to the handful of signals the rules care about.
  * @param {string} screen raw `tmux capture-pane -p` output
  */
-export function readScreen(screen) {
+export function readScreen(screen, footerLines = FOOTER_LINES) {
+  const lines = String(screen).split('\n');
+  const footer = lines.slice(Math.max(0, lines.length - footerLines)).join('\n');
+
   return {
-    connected: screen.includes(CONNECTED),
-    retrying: screen.includes(RETRYING),
-    failed: FAILED.test(screen),
+    // Signals that make cckeep act are read from the footer only, so text in
+    // the conversation cannot trigger anything.
+    connected: footer.includes(CONNECTED),
+    retrying: footer.includes(RETRYING),
+    failed: FAILED.test(footer),
+
+    // Signals that make cckeep hold off are read from the whole pane. A false
+    // positive here costs a skipped pass; missing one costs a keystroke in the
+    // wrong place.
     panel: PANEL.test(screen),
     modal: MODAL.test(screen),
   };

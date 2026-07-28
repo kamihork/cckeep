@@ -134,3 +134,49 @@ test('thresholds are configurable', () => {
   assert.equal(out.action, 'rearm');
   assert.equal(out.reason, 'stuck');
 });
+
+// --- footer scoping -------------------------------------------------------
+// A session where you discuss cckeep, or run it, has "/rc active" sitting in
+// the conversation body. Matching the whole pane made that session look
+// connected, which armed the missing-indicator fallback against a healthy one.
+
+const CONVERSATION_MENTION = [
+  'user: なぜ /rc active が出ないの?',
+  'assistant: /rc active はフッターに出ます。',
+  ...Array(20).fill('  (会話が続く)'),
+  '> ',
+  '  [Opus 5] myproject | ctx 40%',
+].join('\n');
+
+test('the indicator in the conversation body does not count as connected', () => {
+  assert.equal(readScreen(CONVERSATION_MENTION).connected, false);
+  const { action, reason } = decide({ screen: CONVERSATION_MENTION });
+  assert.equal(action, 'none');
+  assert.equal(reason, 'never-connected');
+});
+
+test('the same words in the footer do count', () => {
+  const screen = ['user: 何か話している', ...Array(20).fill('  ...'), '> ', '  /rc active'].join('\n');
+  assert.equal(readScreen(screen).connected, true);
+});
+
+test('a disconnect notice quoted in the conversation does not trigger a re-arm', () => {
+  const screen = [
+    'assistant: 「Remote Control disconnected」と出たら切断です。',
+    ...Array(20).fill('  (会話が続く)'),
+    '> ',
+  ].join('\n');
+  assert.equal(readScreen(screen).failed, false);
+  assert.equal(decide({ screen, state: { ...emptyState(), seen: true } }).action, 'none');
+});
+
+test('dialogs are still detected anywhere on screen', () => {
+  // Holding off is the safe direction, so this one is deliberately permissive.
+  const screen = ['Do you want to proceed?', '❯ 1. Yes', ...Array(30).fill('  ...'), '> '].join('\n');
+  assert.equal(readScreen(screen).modal, true);
+});
+
+test('a status panel is detected anywhere on screen too', () => {
+  const screen = ['❯ Disconnect this session', ...Array(30).fill('  ...'), '> '].join('\n');
+  assert.equal(readScreen(screen).panel, true);
+});
