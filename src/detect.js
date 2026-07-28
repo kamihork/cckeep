@@ -3,10 +3,25 @@
 // so every rule below is directly testable, which matters a lot for a tool whose
 // failure mode is typing into someone's terminal at the wrong moment.
 
-/** Indicators Claude Code paints in the footer for the Remote Control link. */
-const CONNECTED = '/rc active';
-const RETRYING = '/rc reconnecting';
-const FAILED = /Remote Control disconnected|Remote Control failed|\/rc failed/;
+/**
+ * The Remote Control indicator Claude Code right-aligns in its footer.
+ *
+ * It reads `/rc active`, `/rc reconnecting` or `/rc failed` when there is room
+ * — but it is right-aligned on the status line, so a custom statusline or a
+ * narrow pane truncates it to a bare `/rc`. Matching the full phrase therefore
+ * never fires for anyone with a status line of their own, which is common.
+ *
+ * Anchored to the end of the line because the indicator is right-aligned. A
+ * separator and link may follow it (`/rc active · claude.ai/code`), but prose
+ * may not — that is what keeps `/rc` written mid-sentence from matching.
+ */
+const RC_INDICATOR = /(?:^|\s)\/rc(?:\s+(active|reconnecting|failed))?(?:\s*[\u00b7|].*)?\s*$/;
+
+/** Lines a user types into; they may well contain `/rc` themselves. */
+const INPUT_LINE = /^[❯>]/;
+
+/** The notification Claude Code prints when it has given up for good. */
+const FAILED_NOTICE = /Remote Control disconnected|Remote Control failed/;
 
 /** The /remote-control status panel — its first entry is "Disconnect this session". */
 const PANEL = /Disconnect this session|(?:Show|Hide) QR code/;
@@ -28,6 +43,13 @@ const MODAL = /(?:❯|›)\s*(?:\d+\.|Yes|No)|Do you want|\(y\/n\)/;
  */
 const FOOTER_LINES = 12;
 
+/**
+ * The indicator sits on the status line, one or two rows from the bottom — a
+ * tighter window than the notifications above it, so that `/rc` typed into the
+ * input box cannot be mistaken for it.
+ */
+const INDICATOR_LINES = 4;
+
 export const DEFAULTS = {
   /** Consecutive checks stuck in "reconnecting" before we treat the bridge as wedged. */
   stuckLimit: 8,
@@ -45,16 +67,34 @@ export function emptyState() {
  * Reduce a captured pane to the handful of signals the rules care about.
  * @param {string} screen raw `tmux capture-pane -p` output
  */
+/**
+ * Read the indicator out of the last few lines.
+ *
+ * Returns 'active' | 'reconnecting' | 'failed', or null when no indicator is on
+ * screen. A truncated `/rc` counts as 'active': the indicator only renders while
+ * a link exists, and reading it as connected merely records the pane and waits,
+ * which is the safe direction.
+ */
+function readIndicator(lines, window = INDICATOR_LINES) {
+  for (const line of lines.slice(Math.max(0, lines.length - window))) {
+    if (INPUT_LINE.test(line.trim())) continue;
+    const m = line.match(RC_INDICATOR);
+    if (m) return m[1] ?? 'active';
+  }
+  return null;
+}
+
 export function readScreen(screen, footerLines = FOOTER_LINES) {
   const lines = String(screen).split('\n');
   const footer = lines.slice(Math.max(0, lines.length - footerLines)).join('\n');
+  const indicator = readIndicator(lines);
 
   return {
     // Signals that make cckeep act are read from the footer only, so text in
     // the conversation cannot trigger anything.
-    connected: footer.includes(CONNECTED),
-    retrying: footer.includes(RETRYING),
-    failed: FAILED.test(footer),
+    connected: indicator === 'active',
+    retrying: indicator === 'reconnecting',
+    failed: indicator === 'failed' || FAILED_NOTICE.test(footer),
 
     // Signals that make cckeep hold off are read from the whole pane. A false
     // positive here costs a skipped pass; missing one costs a keystroke in the

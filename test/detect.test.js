@@ -180,3 +180,85 @@ test('a status panel is detected anywhere on screen too', () => {
   const screen = ['❯ Disconnect this session', ...Array(30).fill('  ...'), '> '].join('\n');
   assert.equal(readScreen(screen).panel, true);
 });
+
+
+// --- the indicator itself -------------------------------------------------
+// Verbatim from a real 140-column pane. The user's own status line eats the
+// row, so Claude Code right-aligns the indicator into what is left and it
+// renders as a bare "/rc" — no "active". Matching the full phrase found
+// nothing here, which made cckeep useless for anyone with a status line.
+const REAL_FOOTER = [
+  'assistant: ...',
+  '',
+  '\u2500'.repeat(60),
+  '\u276f ',
+  '\u2500'.repeat(60),
+  '  [Opus 5 (1M context)] cckeep \u2387 main | ctx 59% | 5h \u2591\u2591 5%(\u21923h50m) | 7d \u2588\u2591 18%(\u2192131h50m)                    /rc',
+  '  \u23f5\u23f5 auto mode on (shift+tab to cycle) \u00b7 \u2190 for agents',
+].join('\n');
+
+function footerWith(indicator) {
+  return [
+    'assistant: ...',
+    '\u2500'.repeat(60),
+    '\u276f ',
+    '\u2500'.repeat(60),
+    `  [Opus 5] proj | ctx 10%                    ${indicator}`,
+    '  \u23f5\u23f5 auto mode on',
+  ].join('\n');
+}
+
+test('a truncated indicator still reads as connected', () => {
+  assert.equal(readScreen(REAL_FOOTER).connected, true);
+  assert.equal(decide({ screen: REAL_FOOTER }).state.seen, true);
+});
+
+test('the full labels are read as their own states', () => {
+  assert.equal(readScreen(footerWith('/rc active')).connected, true);
+  assert.equal(readScreen(footerWith('/rc reconnecting')).retrying, true);
+  assert.equal(readScreen(footerWith('/rc reconnecting')).connected, false);
+  assert.equal(readScreen(footerWith('/rc failed')).failed, true);
+  assert.equal(readScreen(footerWith('/rc failed')).connected, false);
+});
+
+test('no indicator at all means no indicator', () => {
+  const screen = footerWith('');
+  assert.equal(readScreen(screen).connected, false);
+  assert.equal(readScreen(screen).retrying, false);
+  assert.equal(readScreen(screen).failed, false);
+});
+
+test('/rc typed into the input box is not the indicator', () => {
+  // The prompt row sits inside the window we scan, and a user asking about
+  // "/rc" would otherwise mark their session as connected.
+  const screen = [
+    '\u2500'.repeat(60),
+    '\u276f /rc',
+    '\u2500'.repeat(60),
+    '  [Opus 5] proj | ctx 10%',
+    '  \u23f5\u23f5 auto mode on',
+  ].join('\n');
+  assert.equal(readScreen(screen).connected, false);
+});
+
+test('/rc written mid-sentence is not the indicator', () => {
+  const screen = [
+    'assistant: \u5165\u529b\u6b04\u306e\u4e0b\u306b /rc \u3068\u8868\u793a\u3055\u308c\u307e\u3059',
+    ...Array(10).fill('  ...'),
+    '  [Opus 5] proj | ctx 10%',
+    '  \u23f5\u23f5 auto mode on',
+  ].join('\n');
+  assert.equal(readScreen(screen).connected, false);
+});
+
+test('the disconnect notification is still read from the wider footer', () => {
+  const screen = [
+    ...Array(10).fill('  ...'),
+    'Remote Control disconnected \u00b7 /remote-control',
+    '\u2500'.repeat(60),
+    '\u276f ',
+    '  [Opus 5] proj | ctx 10%',
+  ].join('\n');
+  assert.equal(readScreen(screen).failed, true);
+  assert.equal(decide({ screen }).action, 'rearm');
+});

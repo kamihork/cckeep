@@ -74,7 +74,7 @@ This is the whole design problem. A watchdog that types into your terminal on a 
 
 | State on screen | What it means | What cckeep does |
 |---|---|---|
-| `/rc active` | connected | remembers the pane, nothing else |
+| `/rc active`, or a truncated `/rc` | connected | remembers the pane, nothing else |
 | `/rc reconnecting` | inside the 31-second budget | waits — this usually resolves |
 | `/rc reconnecting`, 2 minutes on | wedged ([#34255](https://github.com/anthropics/claude-code/issues/34255)) | cycles the bridge: opens the panel, disconnects, reconnects |
 | `Remote Control disconnected` | gave up | re-arms immediately |
@@ -202,6 +202,8 @@ cckeep reads the visible text of your tmux panes to decide whether a pane is con
 Claude Code paints a Remote Control indicator in its footer: `/rc active` when connected, `/rc reconnecting` while retrying, and a `Remote Control disconnected` notification when it gives up. cckeep finds the panes running Claude Code, reads those indicators out of `tmux capture-pane`, and keeps a small per-pane counter in `~/.cckeep/state.json`.
 
 Finding those panes takes one extra step: Claude Code rewrites its own process title, so tmux reports such a pane as `2.1.220` rather than `claude`. Matching the name tmux reports therefore finds nothing on a real machine. cckeep checks the process table as well, and treats a pane as Claude Code's when the pane's process — or anything it spawned — is actually `claude`.
+
+The indicator is right-aligned, so a custom status line or a narrow pane squeezes it down to a bare `/rc` with the word cut off. cckeep treats that as connected: the indicator only renders while a link exists, and reading it as connected merely records the pane and waits.
 
 Where it looks matters as much as what it looks for. The state indicators are read from the last dozen lines only, because the words themselves turn up in ordinary conversation — a session where you happen to discuss `/rc active` would otherwise read as connected. Dialog and status-panel detection deliberately scans the whole pane instead: a false positive there costs one skipped pass, while a miss costs a keystroke in the wrong place.
 
