@@ -199,7 +199,9 @@ cckeep reads the visible text of your tmux panes to decide whether a pane is con
 
 ## How it works
 
-Claude Code paints a Remote Control indicator in its footer: `/rc active` when connected, `/rc reconnecting` while retrying, and a `Remote Control disconnected` notification when it gives up. cckeep asks tmux for every pane whose foreground process is `claude`, reads those indicators out of `tmux capture-pane`, and keeps a small per-pane counter in `~/.cckeep/state.json`.
+Claude Code paints a Remote Control indicator in its footer: `/rc active` when connected, `/rc reconnecting` while retrying, and a `Remote Control disconnected` notification when it gives up. cckeep finds the panes running Claude Code, reads those indicators out of `tmux capture-pane`, and keeps a small per-pane counter in `~/.cckeep/state.json`.
+
+Finding those panes takes one extra step: Claude Code rewrites its own process title, so tmux reports such a pane as `2.1.220` rather than `claude`. Matching the name tmux reports therefore finds nothing on a real machine. cckeep checks the process table as well, and treats a pane as Claude Code's when the pane's process — or anything it spawned — is actually `claude`.
 
 The decision layer (`src/detect.js`) is a pure function of screen text plus prior state, which is why the safety rules can be tested exhaustively without a terminal. The runner (`src/run.js`) does the I/O: the idle check, the last-moment re-check, and the keystrokes.
 

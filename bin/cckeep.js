@@ -8,6 +8,7 @@ import * as tmux from '../src/tmux.js';
 import * as scheduler from '../src/scheduler.js';
 import { pickLang, strings } from '../src/i18n.js';
 import { resolveCommand } from '../src/commands.js';
+import { parsePsTable, isTargetPane } from '../src/procs.js';
 
 const HELP = `cckeep — keep Claude Code Remote Control from silently going dead
 
@@ -90,8 +91,10 @@ function render(out, t, opts) {
     console.log(t.hintOutside);
     return;
   }
+  // Session names carry a path hash, so they easily outrun a fixed column.
+  const width = Math.max(...out.results.map((r) => r.pane.length)) + 2;
   for (const r of out.results) {
-    console.log(`${r.pane.padEnd(14)}${describe(r, t)}`);
+    console.log(`${r.pane.padEnd(width)}${describe(r, t)}`);
   }
 }
 
@@ -155,7 +158,8 @@ async function main() {
     case 'doctor': {
       const bin = tmux.tmuxPath();
       const panes = bin && tmux.hasServer() ? tmux.listPanes() : [];
-      const claudePanes = panes.filter((p) => p.command === config.paneCommand);
+      const procs = parsePsTable(tmux.processTable());
+      const claudePanes = panes.filter((p) => isTargetPane(p, procs, config.paneCommand));
       const rows = [
         ['platform', platform()],
         ['node', process.version],

@@ -1,4 +1,5 @@
 import { decide, readScreen } from './detect.js';
+import { parsePsTable, isTargetPane } from './procs.js';
 import * as realTmux from './tmux.js';
 import { loadState, saveState, forPane, prune, appendLog } from './state.js';
 
@@ -31,11 +32,12 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
   if (!tmux.hasServer()) return { results, acted: 0, error: 'no-server' };
 
   const panes = tmux.listPanes();
+  const procs = parsePsTable(tmux.processTable ? tmux.processTable() : '');
   const state = loadState();
   let acted = 0;
 
   for (const pane of panes) {
-    if (pane.command !== config.paneCommand) continue;
+    if (!isTargetPane(pane, procs, config.paneCommand)) continue;
 
     const screen = tmux.capture(pane.id);
     if (!screen) continue;

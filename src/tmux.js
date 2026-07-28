@@ -44,15 +44,39 @@ export function hasServer() {
 
 /** Every pane on the server, with the process currently in the foreground. */
 export function listPanes() {
-  const out = tmux(['list-panes', '-a', '-F', '#{pane_id}\t#{pane_current_command}\t#{session_name}\t#{window_index}\t#{pane_index}']);
+  const out = tmux(['list-panes', '-a', '-F', '#{pane_id}\t#{pane_current_command}\t#{session_name}\t#{window_index}\t#{pane_index}\t#{pane_pid}']);
   if (!out) return [];
   return out
     .split('\n')
     .filter(Boolean)
     .map((line) => {
-      const [id, command, session, windowIndex, paneIndex] = line.split('\t');
-      return { id, command, session, windowIndex, paneIndex, label: `${session}:${windowIndex}.${paneIndex}` };
+      const [id, command, session, windowIndex, paneIndex, pid] = line.split('\t');
+      return {
+        id,
+        command,
+        session,
+        windowIndex,
+        paneIndex,
+        pid: Number(pid),
+        label: `${session}:${windowIndex}.${paneIndex}`,
+      };
     });
+}
+
+/**
+ * One snapshot of the process table per pass. Claude Code rewrites its process
+ * title, so the name tmux reports is not enough to recognise a pane running it.
+ */
+export function processTable() {
+  try {
+    return execFileSync('ps', ['-Ao', 'pid=,ppid=,comm='], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: 8 * 1024 * 1024,
+    });
+  } catch {
+    return '';
+  }
 }
 
 export function capture(paneId) {

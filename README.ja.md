@@ -195,7 +195,9 @@ cckeep は接続状態を判定するために、tmux ペインに表示され�
 
 ## 仕組み
 
-Claude Code はフッターにリモートコントロールの状態を表示します。接続中は `/rc active`、再試行中は `/rc reconnecting`、諦めたときは `Remote Control disconnected` という通知です。cckeep はフォアグラウンドプロセスが `claude` のペインを tmux に問い合わせ、`tmux capture-pane` の出力からこれらを読み取ります。ペインごとの小さなカウンタは `~/.cckeep/state.json` に保存します。
+Claude Code はフッターにリモートコントロールの状態を表示します。接続中は `/rc active`、再試行中は `/rc reconnecting`、諦めたときは `Remote Control disconnected` という通知です。cckeep は Claude Code が動いているペインを探し、`tmux capture-pane` の出力からこれらを読み取ります。ペインごとの小さなカウンタは `~/.cckeep/state.json` に保存します。
+
+ペインを探すところに一手間あります。Claude Code は自身のプロセスタイトルを書き換えるため、tmux はそのペインのコマンド名を `claude` ではなく `2.1.220` のように報告します。tmux の報告する名前だけで判定すると、実機では1つも見つかりません。そこで cckeep はプロセステーブルも参照し、ペインのプロセス(またはそこから起動されたプロセス)が実際に `claude` であればそのペインを対象とします。
 
 判定層(`src/detect.js`)は、画面テキストと直前の状態だけを受け取る純粋関数です。だからこそ、安全ルールをターミナル無しで網羅的にテストできます。静止判定・直前の再確認・キー送信といった I/O は、実行層(`src/run.js`)が担当します。
 
