@@ -114,12 +114,32 @@ cc() {
     esac
   done
   local session="claude-$(basename "$PWD")-$(printf '%s' "$PWD" | cksum | cut -d' ' -f1)"
-  if [ -n "$TMUX" ]; then command claude "$@"
-  elif tmux has-session -t "=$session" 2>/dev/null; then tmux attach-session -t "=$session"
-  else tmux new-session -s "$session" -c "$PWD" claude "$@"
+  if [ -n "$TMUX" ]; then command claude "$@"; return; fi
+  if ! tmux has-session -t "=$session" 2>/dev/null; then
+    tmux new-session -s "$session" -c "$PWD" claude "$@"; return
   fi
+
+  # The tmux session outlives the claude process inside it, so attaching can
+  # drop you at a bare shell with the conversation gone. Bring it back.
+  local pane_cmd cmd
+  pane_cmd=$(tmux list-panes -t "=$session:" -F '#{pane_current_command}' 2>/dev/null | head -1)
+  case "$pane_cmd" in
+    zsh|bash|sh|fish)
+      cmd="claude"
+      case " $* " in
+        *" -c "*|*" --continue "*|*" -r "*|*" --resume "*|*" --session-id "*) ;;
+        *) cmd="$cmd --continue" ;;
+      esac
+      [ $# -gt 0 ] && cmd="$cmd $*"
+      tmux send-keys -t "=$session:" "$cmd" C-m ;;
+  esac
+  tmux attach-session -t "=$session"
 }
 ```
+
+`cc -c` and `cc --continue` work as you'd expect — the flag is passed straight
+through to Claude Code. The block above covers the case the flag can't: a tmux
+session whose Claude Code process has already exited.
 
 Claude Code also needs two lines in `~/.tmux.conf`, or Shift+Enter and desktop notifications break inside tmux ([official guidance](https://code.claude.com/docs/en/terminal-config#configure-tmux)):
 

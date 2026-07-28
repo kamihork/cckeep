@@ -112,12 +112,30 @@ cc() {
     esac
   done
   local session="claude-$(basename "$PWD")-$(printf '%s' "$PWD" | cksum | cut -d' ' -f1)"
-  if [ -n "$TMUX" ]; then command claude "$@"
-  elif tmux has-session -t "=$session" 2>/dev/null; then tmux attach-session -t "=$session"
-  else tmux new-session -s "$session" -c "$PWD" claude "$@"
+  if [ -n "$TMUX" ]; then command claude "$@"; return; fi
+  if ! tmux has-session -t "=$session" 2>/dev/null; then
+    tmux new-session -s "$session" -c "$PWD" claude "$@"; return
   fi
+
+  # tmux セッションは中の claude より長生きするので、そのままアタッチすると
+  # 会話が消えた素のシェルに落ちることがある。その場合は会話を呼び戻す。
+  local pane_cmd cmd
+  pane_cmd=$(tmux list-panes -t "=$session:" -F '#{pane_current_command}' 2>/dev/null | head -1)
+  case "$pane_cmd" in
+    zsh|bash|sh|fish)
+      cmd="claude"
+      case " $* " in
+        *" -c "*|*" --continue "*|*" -r "*|*" --resume "*|*" --session-id "*) ;;
+        *) cmd="$cmd --continue" ;;
+      esac
+      [ $# -gt 0 ] && cmd="$cmd $*"
+      tmux send-keys -t "=$session:" "$cmd" C-m ;;
+  esac
+  tmux attach-session -t "=$session"
 }
 ```
+
+`cc -c` と `cc --continue` はそのまま使えます — フラグは Claude Code にそのまま渡ります。上のブロックが埋めるのは、フラグでは救えないケース(tmux セッションだけ残って中の Claude Code が終了している状態)です。
 
 あわせて `~/.tmux.conf` に2行必要です。これが無いと tmux 内で Shift+Enter とデスクトップ通知が壊れます([公式の案内](https://code.claude.com/docs/en/terminal-config#configure-tmux))。
 
