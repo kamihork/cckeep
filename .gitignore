@@ -1,0 +1,6 @@
+node_modules/
+*.log
+.DS_Store
+
+# internal launch notes, not part of the published project
+.launch/

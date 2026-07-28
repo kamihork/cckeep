@@ -1,0 +1,44 @@
+{
+  "name": "agenttether",
+  "version": "0.1.0",
+  "description": "Keeps Claude Code Remote Control from silently going dead. Re-arms the sessions its 31-second retry budget gives up on — local, tmux-native, zero dependencies.",
+  "type": "module",
+  "bin": {
+    "agenttether": "bin/agenttether.js"
+  },
+  "main": "src/detect.js",
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "claude-code",
+    "remote-control",
+    "tmux",
+    "watchdog",
+    "reconnect",
+    "coding-agent",
+    "agent",
+    "cli",
+    "launchd",
+    "systemd"
+  ],
+  "author": "kamihork <kmihoken@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kamihork/agenttether.git"
+  },
+  "homepage": "https://github.com/kamihork/agenttether#readme",
+  "bugs": {
+    "url": "https://github.com/kamihork/agenttether/issues"
+  },
+  "license": "MIT"
+}

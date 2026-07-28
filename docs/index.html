@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agenttether — keep Claude Code Remote Control from silently going dead</title>
+<meta name="description" content="Remote Control retries for about 31 seconds and then gives up for good. agenttether notices and re-arms the session — without ever typing into one that's busy. Local, tmux-native, zero dependencies.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="agenttether — keep Claude Code Remote Control from silently going dead">
+<meta property="og:description" content="Remote Control gives up after ~31 seconds. agenttether re-arms the session — never typing into one that's busy. npx agenttether install.">
+<meta property="og:image" content="https://kamihork.github.io/agenttether/assets/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="agenttether — keeps Claude Code Remote Control from silently going dead">
+<meta property="og:url" content="https://kamihork.github.io/agenttether/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="agenttether — keep Claude Code Remote Control from silently going dead">
+<meta name="twitter:description" content="Remote Control gives up after ~31 seconds. agenttether re-arms the session — never typing into one that's busy. npx agenttether install.">
+<meta name="twitter:image" content="https://kamihork.github.io/agenttether/assets/social-preview.png">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<style>
+  :root {
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --text: #ffffff;
+    --text-2: #c3c2b7;
+    --muted: #898781;
+    --border: rgba(255, 255, 255, 0.10);
+    --grid: #2c2c2a;
+    --accent: #1f9d8f;      /* the tether teal */
+    --accent-hi: #3dc9b8;
+    --blue: #3987e5;
+    --green: #199e70;
+    --red: #e05252;
+    --amber: #c98500;
+    --wash: rgba(255, 255, 255, 0.06);
+    --shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --page: #f9f9f7; --surface: #fcfcfb; --text: #0b0b0b; --text-2: #52514e;
+      --muted: #898781; --border: rgba(11, 11, 11, 0.10); --grid: #e1e0d9;
+      --accent: #148376; --accent-hi: #0f6d63;
+      --blue: #2a78d6; --green: #1baf7a; --red: #c93b3b; --amber: #eda100;
+      --wash: rgba(11, 11, 11, 0.05); --shadow: 0 24px 80px rgba(30, 30, 25, 0.18);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--page); color: var(--text);
+    font: 16px/1.65 system-ui, -apple-system, "Segoe UI", "Hiragino Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* nav */
+  nav { display: flex; align-items: center; gap: 14px; padding: 18px 0; }
+  nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; font-size: 17px; }
+  nav .brand img { width: 30px; height: 30px; }
+  nav .spacer { flex: 1; }
+  nav a.nl { color: var(--text-2); text-decoration: none; font-size: 14.5px; padding: 6px 10px; border-radius: 8px; }
+  nav a.nl:hover { background: var(--wash); color: var(--text); }
+  nav button {
+    font: inherit; font-size: 13.5px; color: var(--text-2); background: none;
+    border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; cursor: pointer;
+  }
+  nav button:hover { background: var(--wash); }
+
+  /* hero */
+  .hero { text-align: center; padding: 56px 0 30px; }
+  .hero img.mark { width: 92px; height: 92px; margin-bottom: 22px; }
+  .hero h1 { font-size: clamp(32px, 5.2vw, 52px); line-height: 1.15; letter-spacing: -0.02em; font-weight: 800; }
+  .hero h1 em { font-style: normal; color: var(--accent-hi); }
+  .hero p.sub { color: var(--text-2); font-size: clamp(16px, 2.2vw, 19px); max-width: 660px; margin: 18px auto 0; }
+  .install {
+    display: inline-flex; align-items: center; gap: 14px; margin-top: 30px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 20px; font-size: 18px;
+  }
+  .install .dollar { color: var(--accent); user-select: none; }
+  .install button {
+    font: inherit; font-size: 13px; color: var(--text-2); background: none;
+    border: 1px solid var(--border); border-radius: 8px; padding: 4px 12px; cursor: pointer;
+  }
+  .install button:hover { background: var(--wash); }
+  .ctas { margin-top: 22px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; text-decoration: none; font-weight: 600; font-size: 15px;
+    border-radius: 10px; padding: 10px 22px; border: 1px solid var(--border);
+  }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.ghost:hover { background: var(--wash); }
+  .zeroes { margin-top: 26px; color: var(--muted); font-size: 14px; letter-spacing: 0.02em; }
+  .zeroes b { color: var(--text-2); font-weight: 600; }
+
+  /* the budget bar — the one visual that carries the whole pitch */
+  .budget { margin: 46px auto 0; max-width: 720px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px 26px; text-align: left; }
+  .budget .cap { color: var(--muted); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+  .budget .track { display: flex; gap: 4px; margin: 14px 0 10px; align-items: flex-end; height: 46px; }
+  .budget .seg { background: var(--accent); border-radius: 4px; opacity: .95; }
+  .budget .seg.gone { background: var(--red); flex: 1; opacity: .85; }
+  .budget .lbl { display: flex; justify-content: space-between; color: var(--text-2); font-size: 13px; }
+  .budget .lbl .mono { color: var(--muted); }
+
+  /* sections */
+  section { padding: 72px 0 0; }
+  h2.sec { font-size: clamp(24px, 3.4vw, 34px); letter-spacing: -0.015em; font-weight: 750; text-align: center; }
+  p.seclead { color: var(--text-2); text-align: center; max-width: 660px; margin: 12px auto 0; }
+
+  .whygrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 34px; }
+  .why { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+  .why .t { font-weight: 700; margin-bottom: 6px; }
+  .why .t span { margin-right: 8px; }
+  .why p { color: var(--text-2); font-size: 14.5px; }
+
+  .featgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 34px; }
+  .feat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 20px 18px; }
+  .feat .ico { font-size: 22px; }
+  .feat .t { font-weight: 700; margin: 8px 0 4px; }
+  .feat p { color: var(--text-2); font-size: 14.5px; }
+
+  .tablewrap { margin-top: 34px; overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 13px 20px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  thead th { color: var(--muted); font-weight: 600; font-size: 13px; letter-spacing: .03em; text-transform: uppercase; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.state code { color: var(--accent-hi); }
+
+  .cmds {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    margin-top: 34px; padding: 22px 26px; overflow-x: auto;
+  }
+  .cmds pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px; line-height: 2; }
+  .cmds .c { color: var(--muted); }
+  .cmds .k { color: var(--blue); font-weight: 600; }
+
+  .note { margin-top: 34px; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 14px; padding: 20px 24px; }
+  .note .t { font-weight: 700; margin-bottom: 6px; }
+  .note p { color: var(--text-2); font-size: 14.5px; }
+  .note p + p { margin-top: 8px; }
+
+  .starhist { display: block; margin-top: 34px; }
+  .starhist img { display: block; width: 100%; max-width: 760px; margin: 0 auto; }
+
+  footer {
+    margin-top: 88px; border-top: 1px solid var(--grid); padding: 30px 0 48px;
+    color: var(--muted); font-size: 14px; display: flex; gap: 18px; flex-wrap: wrap; align-items: center;
+  }
+  footer a { color: var(--text-2); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  footer .spacer { flex: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="#"><img src="assets/logo.png" alt="">agenttether</a>
+    <div class="spacer"></div>
+    <a class="nl" href="https://github.com/kamihork/agenttether">GitHub</a>
+    <a class="nl" href="https://www.npmjs.com/package/agenttether">npm</a>
+    <button id="lang" aria-label="Language">日本語</button>
+  </nav>
+
+  <header class="hero">
+    <img class="mark" src="assets/logo.png" alt="agenttether logo">
+    <h1 data-i18n="h1">Your session is still running.<br><em>Your phone doesn't know.</em></h1>
+    <p class="sub" data-i18n="sub">Claude Code Remote Control retries for about 31 seconds and then gives up for good. agenttether notices, and re-arms the session — without ever typing into one that's busy.</p>
+    <div class="install mono"><span class="dollar">$</span><span id="cmd">npx agenttether install</span><button id="copy" data-i18n="copy">Copy</button></div>
+    <div class="ctas">
+      <a class="btn primary" href="https://github.com/kamihork/agenttether" data-i18n="ctaGh">View on GitHub</a>
+      <a class="btn ghost" href="https://github.com/kamihork/agenttether/blob/main/README.md" id="ctaDocs" data-i18n="ctaDocs">README</a>
+    </div>
+    <p class="zeroes" data-i18n="zeroes"><b>Zero dependencies</b> · <b>zero cloud</b> · <b>zero telemetry</b> — it reads your tmux panes and nothing leaves the machine.</p>
+
+    <div class="budget">
+      <div class="cap" data-i18n="budgetCap">Remote Control's entire reconnect budget</div>
+      <div class="track">
+        <div class="seg" style="width:26px;height:16px" title="1s"></div>
+        <div class="seg" style="width:26px;height:22px" title="2s"></div>
+        <div class="seg" style="width:26px;height:28px" title="4s"></div>
+        <div class="seg" style="width:26px;height:34px" title="8s"></div>
+        <div class="seg" style="width:26px;height:40px" title="16s"></div>
+        <div class="seg gone" style="height:46px"></div>
+      </div>
+      <div class="lbl"><span data-i18n="budgetL">5 attempts · 1 / 2 / 4 / 8 / 16 s</span><span class="mono" data-i18n="budgetR">31 s, then closed for good</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2 class="sec" data-i18n="whyH">Thirty-one seconds is the whole budget.</h2>
+    <p class="seclead" data-i18n="whyLead">Every one of these outlasts it. The link closes, and the documented recovery is to walk back to your desk and type <code>/remote-control</code>.</p>
+    <div class="whygrid">
+      <div class="why"><div class="t"><span>💤</span><span data-i18n="w1t">The lid</span></div><p data-i18n="w1">You close the laptop to move rooms. It reconnects for 31 seconds, then stops trying.</p></div>
+      <div class="why"><div class="t"><span>📶</span><span data-i18n="w2t">The handoff</span></div><p data-i18n="w2">Wi-Fi to LTE, office to café, VPN reconnecting. Longer than half a minute, and it's over.</p></div>
+      <div class="why"><div class="t"><span>🛗</span><span data-i18n="w3t">The elevator</span></div><p data-i18n="w3">Two floors of no signal costs you the session you were about to check on.</p></div>
+      <div class="why"><div class="t"><span>🪢</span><span data-i18n="w4t">The wedge</span></div><p data-i18n="w4">Sometimes it just sits in “reconnecting” forever — <a href="https://github.com/anthropics/claude-code/issues/34255">issue #34255</a>, open since March, 99 👍, no fix.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec" data-i18n="safeH">It will not type into a session that's working.</h2>
+    <p class="seclead" data-i18n="safeLead">A watchdog that types into your terminal on a timer is a liability unless it's certain the moment is safe. Every rule below is enforced and tested.</p>
+    <div class="featgrid">
+      <div class="feat"><div class="ico">⏸️</div><div class="t" data-i18n="s1t">Never during a turn</div><p data-i18n="s1">The pane is captured twice, two seconds apart. A running turn animates a spinner and a token counter — identical captures mean nothing is happening, different ones mean hands off.</p></div>
+      <div class="feat"><div class="ico">🚧</div><div class="t" data-i18n="s2t">Never into a dialog</div><p data-i18n="s2">Permission prompts turn Enter into a selection. If a selection marker is on screen, the pass is skipped entirely.</p></div>
+      <div class="feat"><div class="ico">📱</div><div class="t" data-i18n="s3t">Never into your panel</div><p data-i18n="s3">/remote-control opens a status panel with a QR code. agenttether presses Enter there only when it opened the panel itself.</p></div>
+      <div class="feat"><div class="ico">🔕</div><div class="t" data-i18n="s4t">Never a session you turned off</div><p data-i18n="s4">Only panes seen connected at least once are ever chased. Disable Remote Control deliberately and it stays off.</p></div>
+      <div class="feat"><div class="ico">🧊</div><div class="t" data-i18n="s5t">Never in a tight loop</div><p data-i18n="s5">One action per pane per five minutes, so a genuinely broken link can't turn into a stream of keystrokes.</p></div>
+      <div class="feat"><div class="ico">🔁</div><div class="t" data-i18n="s6t">Re-checked at the last moment</div><p data-i18n="s6">The decision is made from one capture, then re-verified after the wait. Reconnected in between? Dialog appeared? Nothing is sent.</p></div>
+    </div>
+    <p class="seclead" style="margin-top:30px" data-i18n="safeTail"><code>--dry-run</code> prints exactly what it would do and sends nothing. Run it for a day before you trust it.</p>
+  </section>
+
+  <section>
+    <h2 class="sec" data-i18n="stateH">What it watches for.</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th data-i18n="th1">State on screen</th><th data-i18n="th2">What it means</th><th data-i18n="th3">What agenttether does</th></tr></thead>
+        <tbody>
+          <tr><td class="state"><code>/rc active</code></td><td data-i18n="r1a">connected</td><td data-i18n="r1b">remembers the pane, nothing else</td></tr>
+          <tr><td class="state"><code>/rc reconnecting</code></td><td data-i18n="r2a">inside the 31-second budget</td><td data-i18n="r2b">waits — this usually resolves on its own</td></tr>
+          <tr><td class="state"><code>/rc reconnecting</code> <span data-i18n="r3x">· 2 min</span></td><td data-i18n="r3a">wedged (#34255)</td><td data-i18n="r3b">cycles the bridge: opens the panel, disconnects, reconnects</td></tr>
+          <tr><td class="state"><code>Remote Control disconnected</code></td><td data-i18n="r4a">gave up</td><td data-i18n="r4b">re-arms immediately</td></tr>
+          <tr><td class="state" data-i18n="r5s">no indicator, pane had one before</td><td data-i18n="r5a">notification scrolled away</td><td data-i18n="r5b">re-arms after 4 quiet checks</td></tr>
+          <tr><td class="state" data-i18n="r6s">no indicator, pane never had one</td><td data-i18n="r6a">not your setup</td><td data-i18n="r6b">nothing, ever</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec" data-i18n="cmdH">One command away.</h2>
+    <div class="cmds"><pre>
+<span class="k">agenttether</span> install       <span class="c" data-i18n="c1"># launchd on macOS, systemd user timer on Linux</span>
+<span class="k">agenttether</span>               <span class="c" data-i18n="c2"># what it sees right now — changes nothing</span>
+<span class="k">agenttether</span> watch         <span class="c" data-i18n="c3"># run in the foreground instead of scheduling</span>
+<span class="k">agenttether</span> doctor        <span class="c" data-i18n="c4"># tmux, panes, scheduler, paths</span>
+<span class="k">agenttether</span> logs          <span class="c" data-i18n="c5"># what it has done</span>
+<span class="k">agenttether</span> uninstall     <span class="c" data-i18n="c6"># remove the background job</span></pre></div>
+
+    <div class="note">
+      <div class="t" data-i18n="noteT">One requirement: Claude Code has to run inside tmux.</div>
+      <p data-i18n="noteP1">A session started in a bare terminal can't be reached from another process — there's no channel to type into, so no tool can help it. Restarting the process isn't an alternative: that ends the conversation, which is the thing you were trying to save.</p>
+      <p data-i18n="noteP2">The README has a drop-in shell function that wraps interactive launches only, so <code>claude update</code> and <code>claude -p</code> keep behaving normally.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec" data-i18n="scopeH">The best outcome is that this becomes unnecessary.</h2>
+    <p class="seclead" data-i18n="scopeLead">agenttether re-arms a connection. It can't raise Claude Code's retry budget — that's a constant inside a closed-source binary, and only Anthropic can change it. If <a href="https://github.com/anthropics/claude-code/issues/34255">#34255</a> gets fixed, the right move is to archive this repo. Until then, a 👍 over there is worth more than a ⭐ here.</p>
+  </section>
+
+  <!-- Hidden automatically if star-history.com can't render the chart —
+       a broken-image icon is worse than no section. -->
+  <section id="starSection">
+    <h2 class="sec" data-i18n="starH">Star history</h2>
+    <a class="starhist" href="https://www.star-history.com/#kamihork/agenttether&Date">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=kamihork/agenttether&type=Date&theme=dark">
+        <img alt="Star history chart" src="https://api.star-history.com/svg?repos=kamihork/agenttether&type=Date" loading="lazy"
+             onerror="document.getElementById('starSection').style.display='none'">
+      </picture>
+    </a>
+  </section>
+
+  <footer>
+    <span>MIT © <a href="https://github.com/kamihork">kamihork</a></span>
+    <span class="spacer"></span>
+    <a href="https://github.com/kamihork/agenttether">GitHub</a>
+    <a href="https://www.npmjs.com/package/agenttether">npm</a>
+    <a href="https://github.com/kamihork/agenttether/blob/main/README.ja.md">日本語 README</a>
+    <a href="https://kamihork.github.io/agentfdr/">agentfdr</a>
+  </footer>
+</div>
+
+<script>
+'use strict';
+const I18N = {
+  en: {
+    langBtn: '日本語',
+    h1Raw: "Your session is still running.<br><em>Your phone doesn't know.</em>",
+    sub: "Claude Code Remote Control retries for about 31 seconds and then gives up for good. agenttether notices, and re-arms the session — without ever typing into one that's busy.",
+    copy: 'Copy', copied: 'Copied',
+    ctaGh: 'View on GitHub', ctaDocs: 'README',
+    zeroesRaw: '<b>Zero dependencies</b> · <b>zero cloud</b> · <b>zero telemetry</b> — it reads your tmux panes and nothing leaves the machine.',
+    budgetCap: "Remote Control's entire reconnect budget",
+    budgetL: '5 attempts · 1 / 2 / 4 / 8 / 16 s',
+    budgetR: '31 s, then closed for good',
+    whyH: 'Thirty-one seconds is the whole budget.',
+    whyLeadRaw: 'Every one of these outlasts it. The link closes, and the documented recovery is to walk back to your desk and type <code>/remote-control</code>.',
+    w1t: 'The lid', w1: 'You close the laptop to move rooms. It reconnects for 31 seconds, then stops trying.',
+    w2t: 'The handoff', w2: "Wi-Fi to LTE, office to café, VPN reconnecting. Longer than half a minute, and it's over.",
+    w3t: 'The elevator', w3: 'Two floors of no signal costs you the session you were about to check on.',
+    w4t: 'The wedge', w4Raw: 'Sometimes it just sits in “reconnecting” forever — <a href="https://github.com/anthropics/claude-code/issues/34255">issue #34255</a>, open since March, 99 👍, no fix.',
+    safeH: "It will not type into a session that's working.",
+    safeLead: "A watchdog that types into your terminal on a timer is a liability unless it's certain the moment is safe. Every rule below is enforced and tested.",
+    s1t: 'Never during a turn', s1: 'The pane is captured twice, two seconds apart. A running turn animates a spinner and a token counter — identical captures mean nothing is happening, different ones mean hands off.',
+    s2t: 'Never into a dialog', s2: 'Permission prompts turn Enter into a selection. If a selection marker is on screen, the pass is skipped entirely.',
+    s3t: 'Never into your panel', s3: '/remote-control opens a status panel with a QR code. agenttether presses Enter there only when it opened the panel itself.',
+    s4t: 'Never a session you turned off', s4: 'Only panes seen connected at least once are ever chased. Disable Remote Control deliberately and it stays off.',
+    s5t: 'Never in a tight loop', s5: "One action per pane per five minutes, so a genuinely broken link can't turn into a stream of keystrokes.",
+    s6t: 'Re-checked at the last moment', s6: 'The decision is made from one capture, then re-verified after the wait. Reconnected in between? Dialog appeared? Nothing is sent.',
+    safeTailRaw: '<code>--dry-run</code> prints exactly what it would do and sends nothing. Run it for a day before you trust it.',
+    stateH: 'What it watches for.',
+    th1: 'State on screen', th2: 'What it means', th3: 'What agenttether does',
+    r1a: 'connected', r1b: 'remembers the pane, nothing else',
+    r2a: 'inside the 31-second budget', r2b: 'waits — this usually resolves on its own',
+    r3x: '· 2 min', r3a: 'wedged (#34255)', r3b: 'cycles the bridge: opens the panel, disconnects, reconnects',
+    r4a: 'gave up', r4b: 're-arms immediately',
+    r5s: 'no indicator, pane had one before', r5a: 'notification scrolled away', r5b: 're-arms after 4 quiet checks',
+    r6s: 'no indicator, pane never had one', r6a: 'not your setup', r6b: 'nothing, ever',
+    cmdH: 'One command away.',
+    c1: '# launchd on macOS, systemd user timer on Linux',
+    c2: '# what it sees right now — changes nothing',
+    c3: '# run in the foreground instead of scheduling',
+    c4: '# tmux, panes, scheduler, paths',
+    c5: '# what it has done',
+    c6: '# remove the background job',
+    noteT: 'One requirement: Claude Code has to run inside tmux.',
+    noteP1: "A session started in a bare terminal can't be reached from another process — there's no channel to type into, so no tool can help it. Restarting the process isn't an alternative: that ends the conversation, which is the thing you were trying to save.",
+    noteP2Raw: 'The README has a drop-in shell function that wraps interactive launches only, so <code>claude update</code> and <code>claude -p</code> keep behaving normally.',
+    scopeH: 'The best outcome is that this becomes unnecessary.',
+    scopeLeadRaw: "agenttether re-arms a connection. It can't raise Claude Code's retry budget — that's a constant inside a closed-source binary, and only Anthropic can change it. If <a href=\"https://github.com/anthropics/claude-code/issues/34255\">#34255</a> gets fixed, the right move is to archive this repo. Until then, a 👍 over there is worth more than a ⭐ here.",
+    starH: 'Star history',
+  },
+  ja: {
+    langBtn: 'English',
+    h1Raw: 'セッションはまだ動いている。<br><em>スマホがそれを知らないだけ。</em>',
+    sub: 'Claude Code のリモートコントロールは約31秒で再試行を諦め、二度と戻りません。agenttether はそれを検知して繋ぎ直します — 作業中のセッションには決して打ち込まずに。',
+    copy: 'コピー', copied: 'コピーしました',
+    ctaGh: 'GitHub を見る', ctaDocs: 'README',
+    zeroesRaw: '<b>依存ゼロ</b> · <b>クラウドなし</b> · <b>テレメトリなし</b> — tmux ペインを読むだけで、何もマシンの外に出ません。',
+    budgetCap: 'リモートコントロールの再接続予算のすべて',
+    budgetL: '5回 · 1 / 2 / 4 / 8 / 16 秒',
+    budgetR: '31秒で打ち切り、以後は復帰しない',
+    whyH: '31秒。それが予算のすべてです。',
+    whyLeadRaw: '以下はどれもそれより長く続きます。接続は閉じられ、公式に案内された復旧方法は「机に戻って <code>/remote-control</code> と打つ」ことです。',
+    w1t: 'ノートを閉じる', w1: '部屋を移るために閉じる。31秒だけ再接続を試み、そこで止まります。',
+    w2t: '回線の切り替え', w2: 'Wi-Fi から LTE へ、オフィスからカフェへ、VPN の再接続。30秒を超えれば終わりです。',
+    w3t: 'エレベーター', w3: '2階分の圏外で、ちょうど確認しようとしていたセッションを失います。',
+    w4t: '固着', w4Raw: '「reconnecting」の表示のまま永久に固まることもあります — <a href="https://github.com/anthropics/claude-code/issues/34255">issue #34255</a>、3月から open、👍 99件、未修正。',
+    safeH: '作業中のセッションには打ち込みません。',
+    safeLead: 'タイマーでターミナルに文字を打ち込むツールは、「いま安全か」を確実に判断できない限り危険物です。以下はすべて実装され、テストされています。',
+    s1t: 'ターン実行中は打たない', s1: 'ペインを2秒あけて2回キャプチャします。実行中はスピナーとトークンカウンタが動くので、一致すれば何も起きていない証拠、違えば手を出しません。',
+    s2t: 'ダイアログには打たない', s2: '権限プロンプトでは Enter が「選択」になります。選択マーカーが画面にあれば、その回はまるごとスキップします。',
+    s3t: 'あなたのパネルには打たない', s3: '/remote-control は QR コード付きのステータスパネルを開きます。agenttether が Enter を押すのは、自分で開いたときだけです。',
+    s4t: '自分で切ったものは戻さない', s4: '一度でも接続済みだったペインだけを追跡します。意図的に切ったものは切れたままです。',
+    s5t: '連打しない', s5: '1ペインにつき5分に1回まで。本当に壊れた接続がキー入力の洪水に変わることはありません。',
+    s6t: '直前にもう一度確認する', s6: '判断は1回のキャプチャで下し、待機後に再確認します。その間に復帰していたら? ダイアログが出ていたら? 何も送りません。',
+    safeTailRaw: '<code>--dry-run</code> は「何をするつもりか」だけを表示して一切送信しません。信頼する前に1日走らせてみてください。',
+    stateH: '何を見ているか。',
+    th1: '画面の状態', th2: '意味', th3: 'agenttether の動作',
+    r1a: '接続中', r1b: 'ペインを記憶するだけ',
+    r2a: '31秒の予算内', r2b: '待つ — たいていこれで直る',
+    r3x: '· 2分継続', r3a: '固着 (#34255)', r3b: 'パネルを開いて切断し、張り直す',
+    r4a: '諦めた', r4b: '即座に繋ぎ直す',
+    r5s: '表示なし(以前はあった)', r5a: '通知が流れて消えた', r5b: '4回静かなら繋ぎ直す',
+    r6s: '表示なし(一度もなかった)', r6a: 'そういう使い方ではない', r6b: '何もしない',
+    cmdH: 'コマンド1つです。',
+    c1: '# macOS は launchd、Linux は systemd user timer',
+    c2: '# いま何が見えているか(何も変更しない)',
+    c3: '# 登録せずフォアグラウンドで実行',
+    c4: '# tmux・ペイン・スケジューラ・各パス',
+    c5: '# これまでの動作',
+    c6: '# バックグラウンドジョブを解除',
+    noteT: '条件が一つ: Claude Code が tmux の中で動いていること。',
+    noteP1: '素のターミナルで起動したセッションには、別プロセスから届く経路がありません。入力を送る手段がない以上、どんなツールでも手が出せません。プロセスの再起動は代替になりません — 会話が終わってしまい、守りたかったものそのものを失います。',
+    noteP2Raw: 'README に、対話起動だけを包むシェル関数を用意してあります。<code>claude update</code> や <code>claude -p</code> はそのまま素通しします。',
+    scopeH: 'これが不要になることが、いちばん良い結末です。',
+    scopeLeadRaw: 'agenttether がするのは接続の張り直しだけです。Claude Code の再試行予算は変えられません — クローズドソースのバイナリ内の定数で、変えられるのは Anthropic だけです。<a href="https://github.com/anthropics/claude-code/issues/34255">#34255</a> が修正されたら、このリポジトリはアーカイブするのが正解です。それまでは、ここに ⭐ を付けるより向こうに 👍 を付けるほうが価値があります。',
+    starH: 'Star history',
+  },
+};
+
+let lang = localStorage.getItem('agenttether.lp.lang')
+  || (/^ja/i.test(navigator.language || '') ? 'ja' : 'en');
+
+function apply() {
+  const d = I18N[lang];
+  document.documentElement.lang = lang;
+  for (const el of document.querySelectorAll('[data-i18n]')) {
+    const key = el.dataset.i18n;
+    // *Raw keys carry intentional markup (links, <em>); they are trusted
+    // constants defined above, never user input.
+    if (d[key + 'Raw'] != null) el.innerHTML = d[key + 'Raw'];
+    else if (d[key] != null) el.textContent = d[key];
+  }
+  document.getElementById('lang').textContent = d.langBtn;
+}
+
+document.getElementById('lang').addEventListener('click', () => {
+  lang = lang === 'ja' ? 'en' : 'ja';
+  localStorage.setItem('agenttether.lp.lang', lang);
+  apply();
+});
+
+document.getElementById('copy').addEventListener('click', async () => {
+  const btn = document.getElementById('copy');
+  try {
+    await navigator.clipboard.writeText('npx agenttether install');
+    btn.textContent = I18N[lang].copied;
+  } catch {
+    btn.textContent = '✗';
+  }
+  setTimeout(() => { btn.textContent = I18N[lang].copy; }, 1500);
+});
+
+apply();
+</script>
+</body>
+</html>
