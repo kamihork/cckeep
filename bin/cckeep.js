@@ -130,6 +130,10 @@ async function main() {
     }
     case 'install': {
       const res = scheduler.install({ interval: config.interval });
+      if (res.kind === 'ephemeral') {
+        console.error(t.ephemeral(res.path));
+        process.exit(1);
+      }
       if (res.kind === 'unsupported') {
         console.log(t.unsupported);
         process.exit(1);
@@ -155,6 +159,11 @@ async function main() {
         ['tmux server', bin && tmux.hasServer() ? t.doctorOk : t.doctorFail],
         ['claude panes', String(claudePanes.length)],
         ['scheduler', scheduler.isInstalled() ? t.doctorOk : t.doctorFail],
+        [t.scheduledPath, (() => {
+          const cli = scheduler.scheduledCli();
+          if (!cli) return '—';
+          return existsSync(cli) ? cli : `${cli}  ${t.scheduledMissing}`;
+        })()],
         ['home', homeDir()],
         ['config', existsSync(configPath()) ? configPath() : `${configPath()} (defaults)`],
         ['state', statePath()],

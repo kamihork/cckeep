@@ -28,17 +28,22 @@ Either way you find out the same way: you reach for your phone, and the session 
 ## Quick start
 
 ```sh
-npx cckeep install
+npm install -g cckeep
+cckeep install
 ```
 
 That registers a background job — launchd on macOS, a systemd user timer on Linux — that checks every 15 seconds and re-arms whatever went dead.
 
-One requirement: **Claude Code has to be running inside tmux.** A session started in a bare terminal cannot be reached from another process, so there is nothing any tool can do for it. See [Running Claude Code in tmux](#running-claude-code-in-tmux).
+Install it globally rather than running `npx cckeep install`. The scheduled job runs cckeep from wherever it was installed, and npx's cache is throwaway: a job pointing into it keeps working until the cache is cleared and then stops, silently — the one failure a watchdog must not have. `cckeep install` refuses to schedule from an npx path for that reason.
+
+To look before installing anything, `npx` is fine — neither of these changes a thing:
 
 ```sh
-npx cckeep            # what it sees right now — changes nothing
+npx cckeep            # what it sees right now
 npx cckeep doctor     # check tmux, panes, and the scheduler
 ```
+
+One requirement: **Claude Code has to be running inside tmux.** A session started in a bare terminal cannot be reached from another process, so there is nothing any tool can do for it. See [Running Claude Code in tmux](#running-claude-code-in-tmux).
 
 > If cckeep saved you a walk back to your desk, a ⭐ helps other Remote Control users find it.
 

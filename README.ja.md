@@ -28,17 +28,22 @@
 ## クイックスタート
 
 ```sh
-npx cckeep install
+npm install -g cckeep
+cckeep install
 ```
 
 バックグラウンドジョブを登録します(macOS は launchd、Linux は systemd user timer)。15秒ごとに確認し、死んでいるものを繋ぎ直します。
 
-条件が一つあります。**Claude Code が tmux の中で動いていること。** 素のターミナルで起動したセッションには別プロセスから入力を送る手段がなく、どんなツールでも手が出せません。→ [tmux で Claude Code を動かす](#tmux-で-claude-code-を動かす)
+`npx cckeep install` ではなくグローバルに入れてください。登録されたジョブはインストール先の cckeep を実行しますが、npx のキャッシュは使い捨てです。そこを指すジョブはキャッシュが消された瞬間に、黙って動かなくなります — 監視ツールが持ってはいけない唯一の壊れ方です。そのため `cckeep install` は npx のパスからの登録を拒否します。
+
+入れる前に様子を見るだけなら `npx` で構いません。以下の2つは何も変更しません。
 
 ```sh
-npx cckeep            # いま何が見えているか(何も変更しません)
+npx cckeep            # いま何が見えているか
 npx cckeep doctor     # tmux・ペイン・スケジューラの確認
 ```
+
+条件が一つあります。**Claude Code が tmux の中で動いていること。** 素のターミナルで起動したセッションには別プロセスから入力を送る手段がなく、どんなツールでも手が出せません。→ [tmux で Claude Code を動かす](#tmux-で-claude-code-を動かす)
 
 > 机に戻る手間が省けたなら、⭐ が同じ問題を抱えている人に届く助けになります。
 

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,16 @@ export const LABEL = 'io.github.kamihork.cckeep';
 
 function cliPath() {
   return fileURLToPath(new URL('../bin/cckeep.js', import.meta.url));
+}
+
+/**
+ * `npx cckeep` runs out of npm's throwaway cache. Baking that path into a
+ * launchd job or systemd unit produces a scheduler that works today and stops
+ * forever the first time the cache is evicted — silently, which is the one
+ * failure this tool must not have. Refuse instead, and ask for a real install.
+ */
+export function isEphemeralPath(p) {
+  return /[\\/]_npx[\\/]/.test(p) || /[\\/]\.npm[\\/]_cacache[\\/]/.test(p);
 }
 
 function nodePath() {
@@ -83,6 +93,9 @@ function run(cmd, args) {
 }
 
 export function install({ interval }) {
+  const cli = cliPath();
+  if (isEphemeralPath(cli)) return { kind: 'ephemeral', path: cli, ok: false };
+
   const os = platform();
   if (os === 'darwin') {
     const p = plistPath();
@@ -131,4 +144,30 @@ export function isInstalled() {
   if (os === 'darwin') return existsSync(plistPath());
   if (os === 'linux') return existsSync(join(systemdDir(), 'cckeep.timer'));
   return false;
+}
+
+/**
+ * The cckeep path the installed scheduler will actually run. Read back from the
+ * unit rather than recomputed, so `doctor` can catch a job left pointing at a
+ * copy that has since been moved or deleted.
+ */
+export function scheduledCli() {
+  try {
+    const os = platform();
+    if (os === 'darwin') {
+      const p = plistPath();
+      if (!existsSync(p)) return null;
+      const xml = readFileSync(p, 'utf8');
+      const args = [...xml.matchAll(/<string>([^<]*)<\/string>/g)].map((m) => m[1]);
+      return args.find((a) => a.endsWith('cckeep.js')) ?? null;
+    }
+    if (os === 'linux') {
+      const p = join(systemdDir(), 'cckeep.service');
+      if (!existsSync(p)) return null;
+      const unit = readFileSync(p, 'utf8');
+      const line = unit.match(/^ExecStart=(.*)$/m)?.[1] ?? '';
+      return line.split(/\s+/).find((a) => a.endsWith('cckeep.js')) ?? null;
+    }
+  } catch {}
+  return null;
 }
