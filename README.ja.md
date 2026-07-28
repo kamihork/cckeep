@@ -29,12 +29,12 @@
 
 ```sh
 npm install -g cckeep
-cckeep install
+cckeep enable
 ```
 
-バックグラウンドジョブを登録します(macOS は launchd、Linux は systemd user timer)。15秒ごとに確認し、死んでいるものを繋ぎ直します。
+`npm install` は CLI を `PATH` に置くだけで、常駐はまだ始まりません。`cckeep enable` がバックグラウンドジョブを登録します(macOS は launchd、Linux は systemd user timer)。15秒ごとに確認し、死んでいるものを繋ぎ直します。
 
-`npx cckeep install` ではなくグローバルに入れてください。登録されたジョブはインストール先の cckeep を実行しますが、npx のキャッシュは使い捨てです。そこを指すジョブはキャッシュが消された瞬間に、黙って動かなくなります — 監視ツールが持ってはいけない唯一の壊れ方です。そのため `cckeep install` は npx のパスからの登録を拒否します。
+`npx cckeep enable` ではなくグローバルに入れてください。登録されたジョブはインストール先の cckeep を実行しますが、npx のキャッシュは使い捨てです。そこを指すジョブはキャッシュが消された瞬間に、黙って動かなくなります — 監視ツールが持ってはいけない唯一の壊れ方です。そのため `cckeep enable` は npx のパスからの登録を拒否します。
 
 入れる前に様子を見るだけなら `npx` で構いません。以下の2つは何も変更しません。
 
@@ -85,13 +85,15 @@ asdf reshim nodejs # asdf
 cckeep                 # 状態表示: Claude Code のペインごとに1行
 cckeep watch           # スケジュール登録せずフォアグラウンドで実行
 cckeep once            # 1回だけ実行(スケジューラが叩くもの)
-cckeep install         # バックグラウンドジョブを登録
-cckeep uninstall       # 解除
+cckeep enable          # バックグラウンドでの監視を開始
+cckeep disable         # 監視を停止
 cckeep doctor          # tmux・ペイン・スケジューラ・各パス
 cckeep logs            # これまでの動作
 ```
 
 オプション: `--dry-run`、`--json`、`--interval <秒>`、`--lang en|ja`(`LANG` から自動判定)。
+
+`install` / `uninstall` は `enable` / `disable` のエイリアスとして引き続き使えます。
 
 ## tmux で Claude Code を動かす
 
@@ -162,7 +164,7 @@ Ctrl+B の衝突は対処不要です。Claude Code は tmux を検出して、�
 }
 ```
 
-- `interval` — 巡回間隔(秒)。`install` が登録する間隔でもある
+- `interval` — 巡回間隔(秒)。`enable` が登録する間隔でもある
 - `cooldown` — 同じペインに再度手を出せるまでの秒数
 - `stuckLimit` — `reconnecting` が何回続いたら固着とみなすか
 - `missLimit` — 表示のあったペインが何回無表示なら繋ぎ直すか

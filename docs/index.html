@@ -169,7 +169,7 @@
     <img class="mark" src="assets/logo.png" alt="cckeep logo">
     <h1 data-i18n="h1">Your session is still running.<br><em>Your phone doesn't know.</em></h1>
     <p class="sub" data-i18n="sub">Claude Code Remote Control retries for about 31 seconds and then gives up for good. cckeep notices, and re-arms the session — without ever typing into one that's busy.</p>
-    <div class="install mono"><span class="dollar">$</span><span id="cmd">npm i -g cckeep &amp;&amp; cckeep install</span><button id="copy" data-i18n="copy">Copy</button></div>
+    <div class="install mono"><span class="dollar">$</span><span id="cmd">npm i -g cckeep &amp;&amp; cckeep enable</span><button id="copy" data-i18n="copy">Copy</button></div>
     <div class="ctas">
       <a class="btn primary" href="https://github.com/kamihork/cckeep" data-i18n="ctaGh">View on GitHub</a>
       <a class="btn ghost" href="https://github.com/kamihork/cckeep/blob/main/README.md" id="ctaDocs" data-i18n="ctaDocs">README</a>
@@ -236,12 +236,12 @@
     <h2 class="sec" data-i18n="cmdH">One command away.</h2>
     <div class="cmds"><pre>
 <span class="k">npm</span> i -g cckeep       <span class="c" data-i18n="c0"># install globally — an npx path would vanish</span>
-<span class="k">cckeep</span> install       <span class="c" data-i18n="c1"># launchd on macOS, systemd user timer on Linux</span>
+<span class="k">cckeep</span> enable        <span class="c" data-i18n="c1"># launchd on macOS, systemd user timer on Linux</span>
 <span class="k">cckeep</span>               <span class="c" data-i18n="c2"># what it sees right now — changes nothing</span>
 <span class="k">cckeep</span> watch         <span class="c" data-i18n="c3"># run in the foreground instead of scheduling</span>
 <span class="k">cckeep</span> doctor        <span class="c" data-i18n="c4"># tmux, panes, scheduler, paths</span>
 <span class="k">cckeep</span> logs          <span class="c" data-i18n="c5"># what it has done</span>
-<span class="k">cckeep</span> uninstall     <span class="c" data-i18n="c6"># remove the background job</span></pre></div>
+<span class="k">cckeep</span> disable       <span class="c" data-i18n="c6"># remove the background job</span></pre></div>
 
     <div class="note">
       <div class="t" data-i18n="noteT">One requirement: Claude Code has to run inside tmux.</div>
@@ -316,12 +316,12 @@ const I18N = {
     r6s: 'no indicator, pane never had one', r6a: 'not your setup', r6b: 'nothing, ever',
     cmdH: 'One command away.',
     c0: '# install globally — an npx path would vanish',
-    c1: '# launchd on macOS, systemd user timer on Linux',
+    c1: '# register the job — launchd / systemd user timer',
     c2: '# what it sees right now — changes nothing',
     c3: '# run in the foreground instead of scheduling',
     c4: '# tmux, panes, scheduler, paths',
     c5: '# what it has done',
-    c6: '# remove the background job',
+    c6: '# stop checking in the background',
     noteT: 'One requirement: Claude Code has to run inside tmux.',
     noteP1: "A session started in a bare terminal can't be reached from another process — there's no channel to type into, so no tool can help it. Restarting the process isn't an alternative: that ends the conversation, which is the thing you were trying to save.",
     noteP2Raw: 'The README has a drop-in shell function that wraps interactive launches only, so <code>claude update</code> and <code>claude -p</code> keep behaving normally.',
@@ -364,12 +364,12 @@ const I18N = {
     r6s: '表示なし(一度もなかった)', r6a: 'そういう使い方ではない', r6b: '何もしない',
     cmdH: 'コマンド1つです。',
     c0: '# グローバルに入れる。npx のパスは消える',
-    c1: '# macOS は launchd、Linux は systemd user timer',
+    c1: '# ジョブを登録 — launchd / systemd user timer',
     c2: '# いま何が見えているか(何も変更しない)',
     c3: '# 登録せずフォアグラウンドで実行',
     c4: '# tmux・ペイン・スケジューラ・各パス',
     c5: '# これまでの動作',
-    c6: '# バックグラウンドジョブを解除',
+    c6: '# バックグラウンドでの監視を停止',
     noteT: '条件が一つ: Claude Code が tmux の中で動いていること。',
     noteP1: '素のターミナルで起動したセッションには、別プロセスから届く経路がありません。入力を送る手段がない以上、どんなツールでも手が出せません。プロセスの再起動は代替になりません — 会話が終わってしまい、守りたかったものそのものを失います。',
     noteP2Raw: 'README に、対話起動だけを包むシェル関数を用意してあります。<code>claude update</code> や <code>claude -p</code> はそのまま素通しします。',
@@ -405,7 +405,7 @@ document.getElementById('lang').addEventListener('click', () => {
 document.getElementById('copy').addEventListener('click', async () => {
   const btn = document.getElementById('copy');
   try {
-    await navigator.clipboard.writeText('npm i -g cckeep && cckeep install');
+    await navigator.clipboard.writeText('npm i -g cckeep && cckeep enable');
     btn.textContent = I18N[lang].copied;
   } catch {
     btn.textContent = '✗';

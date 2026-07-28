@@ -5,7 +5,7 @@ import { DEFAULTS } from './detect.js';
 
 export const BASE = {
   ...DEFAULTS,
-  /** Seconds between passes in watch mode, and what `install` schedules. */
+  /** Seconds between passes in watch mode, and what `enable` schedules. */
   interval: 15,
   /** Milliseconds between the two captures of the idle check. */
   settle: 2000,

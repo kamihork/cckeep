@@ -7,6 +7,7 @@ import { logPath, statePath, homeDir } from '../src/state.js';
 import * as tmux from '../src/tmux.js';
 import * as scheduler from '../src/scheduler.js';
 import { pickLang, strings } from '../src/i18n.js';
+import { resolveCommand } from '../src/commands.js';
 
 const HELP = `cckeep — keep Claude Code Remote Control from silently going dead
 
@@ -17,10 +18,13 @@ COMMANDS
   status          what cckeep sees right now (default)
   watch           run in the foreground, one pass every --interval seconds
   once            a single pass — what the scheduler runs
-  install         register a background job (launchd on macOS, systemd on Linux)
-  uninstall       remove it
+  enable          start checking in the background (launchd / systemd user timer)
+  disable         stop checking
   doctor          check tmux, Claude Code panes, and the scheduler
   logs            show recent actions
+
+  "npm install -g cckeep" only puts this CLI on your PATH. "cckeep enable" is
+  what registers the background job. (install / uninstall still work as aliases.)
 
 OPTIONS
   --interval <s>  seconds between passes (default 15)
@@ -107,7 +111,7 @@ async function main() {
     process.exit(1);
   }
 
-  switch (opts.command ?? 'status') {
+  switch (resolveCommand(opts.command)) {
     case 'status': {
       const out = await runPass({ config, dryRun: true });
       render(out, t, opts);
@@ -128,7 +132,7 @@ async function main() {
         await new Promise((r) => setTimeout(r, config.interval * 1000));
       }
     }
-    case 'install': {
+    case 'enable': {
       const res = scheduler.install({ interval: config.interval });
       if (res.kind === 'ephemeral') {
         console.error(t.ephemeral(res.path));
@@ -138,14 +142,14 @@ async function main() {
         console.log(t.unsupported);
         process.exit(1);
       }
-      console.log(res.ok ? t.installed(res.kind, res.path) : t.installFailed(res.kind));
+      console.log(res.ok ? t.enabled(res.kind, res.path) : t.enableFailed(res.kind));
       if (!res.ok) process.exit(1);
       break;
     }
-    case 'uninstall': {
+    case 'disable': {
       const res = scheduler.uninstall();
       if (res.kind === 'unsupported') return console.log(t.unsupported);
-      console.log(t.uninstalled(res.kind));
+      console.log(t.disabled(res.kind));
       break;
     }
     case 'doctor': {

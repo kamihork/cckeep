@@ -29,12 +29,12 @@ Either way you find out the same way: you reach for your phone, and the session 
 
 ```sh
 npm install -g cckeep
-cckeep install
+cckeep enable
 ```
 
-That registers a background job — launchd on macOS, a systemd user timer on Linux — that checks every 15 seconds and re-arms whatever went dead.
+`npm install` only puts the CLI on your `PATH`; `cckeep enable` is the step that registers a background job — launchd on macOS, a systemd user timer on Linux — that checks every 15 seconds and re-arms whatever went dead.
 
-Install it globally rather than running `npx cckeep install`. The scheduled job runs cckeep from wherever it was installed, and npx's cache is throwaway: a job pointing into it keeps working until the cache is cleared and then stops, silently — the one failure a watchdog must not have. `cckeep install` refuses to schedule from an npx path for that reason.
+Install it globally rather than running `npx cckeep enable`. The scheduled job runs cckeep from wherever it was installed, and npx's cache is throwaway: a job pointing into it keeps working until the cache is cleared and then stops, silently — the one failure a watchdog must not have. `cckeep enable` refuses to schedule from an npx path for that reason.
 
 To look before installing anything, `npx` is fine — neither of these changes a thing:
 
@@ -87,13 +87,15 @@ This is the whole design problem. A watchdog that types into your terminal on a 
 cckeep                 # status: one line per Claude Code pane
 cckeep watch           # run in the foreground instead of scheduling
 cckeep once            # a single pass — what the scheduler runs
-cckeep install         # register the background job
-cckeep uninstall       # remove it
+cckeep enable          # start checking in the background
+cckeep disable         # stop checking
 cckeep doctor          # tmux, panes, scheduler, paths
 cckeep logs            # what it has done
 ```
 
 Options: `--dry-run`, `--json`, `--interval <s>`, `--lang en|ja` (auto-detected from `LANG`).
+
+`install` and `uninstall` still work as aliases for `enable` and `disable`.
 
 ## Running Claude Code in tmux
 
@@ -166,7 +168,7 @@ Defaults are tuned so you never notice it. Override in `~/.cckeep/config.json`, 
 }
 ```
 
-- `interval` — seconds between passes (also what `install` schedules)
+- `interval` — seconds between passes (also what `enable` schedules)
 - `cooldown` — seconds before the same pane may be acted on again
 - `stuckLimit` — checks in `reconnecting` before the bridge is treated as wedged
 - `missLimit` — checks with no indicator before re-arming a pane that had one
