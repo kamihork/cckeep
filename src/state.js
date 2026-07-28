@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, statSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { emptyState } from './detect.js';
@@ -31,7 +31,41 @@ export function loadState() {
 export function saveState(state) {
   const p = statePath();
   mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(state, null, 2));
+  // Write then rename, so a concurrent reader never sees a half-written file
+  // and falls back to an empty state — which would lose every `seen` flag.
+  const tmp = `${p}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(state, null, 2));
+  renameSync(tmp, p);
+}
+
+/**
+ * One pass at a time. `cckeep watch` in a terminal alongside the scheduled job
+ * is an easy thing to end up with, and two passes acting on the same pane
+ * interleave into a single garbled prompt — the cooldown cannot help, because
+ * both read the state before either writes it.
+ */
+export function acquireLock(staleAfterMs = 120000) {
+  const p = join(homeDir(), 'cckeep.lock');
+  mkdirSync(dirname(p), { recursive: true });
+  try {
+    writeFileSync(p, String(process.pid), { flag: 'wx' });
+    return true;
+  } catch {
+    try {
+      if (Date.now() - statSync(p).mtimeMs > staleAfterMs) {
+        rmSync(p, { force: true });
+        writeFileSync(p, String(process.pid), { flag: 'wx' });
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+}
+
+export function releaseLock() {
+  try {
+    rmSync(join(homeDir(), 'cckeep.lock'), { force: true });
+  } catch {}
 }
 
 export function forPane(state, paneId) {

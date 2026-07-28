@@ -7,7 +7,7 @@ import { logPath, statePath, homeDir } from '../src/state.js';
 import * as tmux from '../src/tmux.js';
 import * as scheduler from '../src/scheduler.js';
 import { pickLang, strings } from '../src/i18n.js';
-import { resolveCommand } from '../src/commands.js';
+import { resolveCommand, isKnownCommand } from '../src/commands.js';
 import { parsePsTable, isTargetPane } from '../src/procs.js';
 
 const HELP = `cckeep — keep Claude Code Remote Control from silently going dead
@@ -41,16 +41,33 @@ into the ones that went dead — never into one that is busy or showing a dialog
 `;
 
 function parseArgs(argv) {
-  const opts = { command: null, dryRun: false, json: false, lang: null, interval: null };
+  const opts = { command: null, dryRun: false, json: false, lang: null, interval: null, error: null };
+  const fail = (msg) => {
+    if (!opts.error) opts.error = msg;
+  };
+  // Unknown flags used to be skipped in silence, so `--dry-runn` performed real
+  // sends into live panes. The one flag that prevents sending must never fail
+  // open on a typo.
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') opts.dryRun = true;
     else if (a === '--json') opts.json = true;
-    else if (a === '--lang') opts.lang = argv[++i];
-    else if (a === '--interval') opts.interval = Number(argv[++i]);
-    else if (a === '-h' || a === '--help') opts.command = 'help';
+    else if (a === '--lang') {
+      const v = argv[++i];
+      if (v === undefined || v.startsWith('-')) fail('--lang needs a value: en or ja');
+      else if (v !== 'en' && v !== 'ja') fail(`--lang must be en or ja, not "${v}"`);
+      else opts.lang = v;
+    } else if (a === '--interval') {
+      const v = argv[++i];
+      const n = Number(v);
+      if (v === undefined || v.startsWith('-')) fail('--interval needs a value in seconds');
+      else if (!Number.isInteger(n) || n < 1) fail(`--interval must be a whole number of seconds, not "${v}"`);
+      else opts.interval = n;
+    } else if (a === '-h' || a === '--help') opts.command = 'help';
     else if (a === '-v' || a === '--version') opts.command = 'version';
-    else if (!a.startsWith('-') && !opts.command) opts.command = a;
+    else if (a.startsWith('-')) fail(`Unknown option: ${a}`);
+    else if (!opts.command) opts.command = a;
+    else fail(`Unexpected argument: ${a}`);
   }
   return opts;
 }
@@ -68,6 +85,7 @@ const REASON_KEY = {
   dialog: 'dialog',
   cooldown: 'cooldown',
   busy: 'busy',
+  'composer-busy': 'composerBusy',
   recovered: 'recovered',
 };
 
@@ -106,6 +124,18 @@ async function main() {
   if (opts.command === 'help') return console.log(HELP);
   if (opts.command === 'version') return console.log(version());
 
+  if (opts.error) {
+    console.error(opts.error);
+    console.error('Run `cckeep --help` for the full list.');
+    process.exit(2);
+  }
+
+  if (opts.command !== null && !isKnownCommand(opts.command)) {
+    console.error(`Unknown command: ${opts.command}\n`);
+    console.log(HELP);
+    process.exit(1);
+  }
+
   let config;
   try {
     config = loadConfig(opts.interval ? { interval: opts.interval } : {});
@@ -113,6 +143,10 @@ async function main() {
     console.error(err.message);
     process.exit(1);
   }
+
+  // The socket and binary can only come from the config file, so hand them to
+  // the tmux layer before anything queries it.
+  tmux.configureTmux({ socket: config.tmuxSocket, binary: config.tmuxBinary });
 
   switch (resolveCommand(opts.command)) {
     case 'status': {

@@ -27,10 +27,31 @@ const FAILED_NOTICE = /Remote Control disconnected|Remote Control failed/;
 const PANEL = /Disconnect this session|(?:Show|Hide) QR code/;
 
 /**
- * Anything that turns Enter or a slash command into a selection: permission
- * prompts, pickers, confirmations. Typing into one of these picks an option.
+ * Anything that turns Enter into a selection: permission prompts, pickers,
+ * confirmations. Typing into one of these picks an option.
+ *
+ * Split in two on purpose. A selection marker followed by an option is close to
+ * unambiguous, so it counts anywhere on screen. The bare English phrases are
+ * things Claude Code also writes in ordinary replies ("Do you want me to run
+ * the tests as well?"), and such a sentence sitting in the transcript forever
+ * would hold the pane off forever — so those only count near the composer,
+ * where a real dialog renders.
  */
-const MODAL = /(?:❯|›)\s*(?:\d+\.|Yes|No)|Do you want|\(y\/n\)/;
+const MODAL_MARKER = /(?:^|\s)(?:❯|›|>)\s*(?:\d+\s*[.)]|Yes\b|No\b)/m;
+const MODAL_PROMPT = /Do you want|Would you like|Allow\b[^\n]{0,40}\?|\(y\/n\)|\[y\/N\]/i;
+
+/** How far up from the composer a dialog can plausibly render. */
+const MODAL_LINES = 20;
+
+/**
+ * The composer, and whether anything is typed in it.
+ *
+ * `send-keys` inserts at the cursor and Enter submits whatever is in the box,
+ * so an unsent draft would be submitted with `/remote-control` glued onto it —
+ * a text injection into the conversation *and* a failed reconnect. The idle
+ * check cannot catch this: a draft sitting in the box is perfectly still.
+ */
+const COMPOSER = /^(?:│\s*)?(?:❯|>)\s?(.*?)\s*(?:│)?$/;
 
 /**
  * How many lines from the bottom count as "the footer".
@@ -75,6 +96,18 @@ export function emptyState() {
  * a link exists, and reading it as connected merely records the pane and waits,
  * which is the safe direction.
  */
+/**
+ * 'empty' | 'draft' | 'unknown'. Unknown means we could not find the composer,
+ * which is treated like a draft: if we cannot see the box, we do not type.
+ */
+function readComposer(lines, window = INDICATOR_LINES + 4) {
+  for (const line of lines.slice(Math.max(0, lines.length - window)).reverse()) {
+    const m = line.match(COMPOSER);
+    if (m) return m[1].trim() === '' ? 'empty' : 'draft';
+  }
+  return 'unknown';
+}
+
 function readIndicator(lines, window = INDICATOR_LINES) {
   for (const line of lines.slice(Math.max(0, lines.length - window))) {
     if (INPUT_LINE.test(line.trim())) continue;
@@ -96,6 +129,7 @@ export function readScreen(screen, footerLines = FOOTER_LINES) {
   const lines = all.slice(0, end);
 
   const footer = lines.slice(Math.max(0, lines.length - footerLines)).join('\n');
+  const modalWindow = lines.slice(Math.max(0, lines.length - MODAL_LINES)).join('\n');
   const indicator = readIndicator(lines);
 
   return {
@@ -105,11 +139,12 @@ export function readScreen(screen, footerLines = FOOTER_LINES) {
     retrying: indicator === 'reconnecting',
     failed: indicator === 'failed' || FAILED_NOTICE.test(footer),
 
-    // Signals that make cckeep hold off are read from the whole pane. A false
-    // positive here costs a skipped pass; missing one costs a keystroke in the
-    // wrong place.
-    panel: PANEL.test(screen),
-    modal: MODAL.test(screen),
+    // Signals that make cckeep hold off. A false positive here costs a skipped
+    // pass; missing one costs a keystroke in the wrong place.
+    panel: PANEL.test(footer),
+    modal: MODAL_MARKER.test(lines.join('\n')) || MODAL_PROMPT.test(modalWindow),
+
+    composer: readComposer(lines),
   };
 }
 
@@ -139,7 +174,9 @@ export function decide({ screen, state = emptyState(), now = 0, config = {} }) {
   // panel to read the QR code.
   if (next.panelPending) {
     next.panelPending = false;
-    if (s.panel && !s.modal) {
+    // Same rules as any other keystroke: not into a dialog, and not on top of
+    // something the user has typed.
+    if (s.panel && !s.modal && s.composer === 'empty') {
       next.lastActionAt = 0; // let the next pass re-arm without waiting out the cooldown
       return { action: 'confirm-panel', reason: 'stuck-cycle', state: next };
     }
@@ -152,6 +189,20 @@ export function decide({ screen, state = emptyState(), now = 0, config = {} }) {
     next.miss = 0;
     next.stuck = 0;
     return { action: 'none', reason: 'connected', state: next };
+  }
+
+  // Held off before any counter moves. Doing this after the counters were
+  // consumed meant a dialog — or a sentence merely worded like one, or panel
+  // text cckeep itself had left in the scrollback — reset the progress every
+  // pass, so the pane could never mature into a recovery at all.
+  if (s.modal || s.panel) {
+    return { action: 'none', reason: 'dialog', state: next };
+  }
+
+  // Enter submits whatever sits in the composer, so an unsent draft would go
+  // out with the command glued to it.
+  if (s.composer !== 'empty') {
+    return { action: 'none', reason: 'composer-busy', state: next };
   }
 
   let dead = null;
@@ -184,10 +235,6 @@ export function decide({ screen, state = emptyState(), now = 0, config = {} }) {
       next.miss = 0;
       dead = 'silent';
     }
-  }
-
-  if (s.modal || s.panel) {
-    return { action: 'none', reason: 'dialog', state: next };
   }
 
   if (state.lastActionAt && now - state.lastActionAt < cfg.cooldown) {

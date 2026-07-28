@@ -5,11 +5,12 @@ import { decide, emptyState, readScreen, DEFAULTS } from '../src/detect.js';
 // Screens shaped like what Claude Code actually paints. The footer indicator and
 // the notification wording are the only parts the detector reads.
 const CONNECTED = 'assistant reply here\n> \n  /rc active  ·  claude.ai/code';
+const COMPOSER = '> ';
 const RETRYING = 'assistant reply here\n> \n  /rc reconnecting';
 const DISCONNECTED = 'Remote Control disconnected · /remote-control\n> ';
-const FAILED_FOOTER = 'blah\n  /rc failed';
+const FAILED_FOOTER = ['blah', '> ', '  /rc failed'].join('\n');
 const SILENT = 'just an ordinary idle session\n> ';
-const PANEL = 'Remote Control\n❯ Disconnect this session\n  Show QR code';
+const PANEL = ['Remote Control', '❯ Disconnect this session', '  Show QR code', '> '].join('\n');
 const PERMISSION = 'Do you want to run this command?\n❯ 1. Yes\n  2. No';
 
 /** Feed the same screen through `decide` n times, threading state. */
@@ -176,8 +177,16 @@ test('dialogs are still detected anywhere on screen', () => {
   assert.equal(readScreen(screen).modal, true);
 });
 
-test('a status panel is detected anywhere on screen too', () => {
+test('panel text left far up the transcript does not hold the pane off forever', () => {
+  // cckeep itself puts panel text in the scrollback as step one of its own
+  // wedged-bridge cycle. Treating that as "a panel is open" poisoned the pane
+  // against every future recovery.
   const screen = ['❯ Disconnect this session', ...Array(30).fill('  ...'), '> '].join('\n');
+  assert.equal(readScreen(screen).panel, false);
+});
+
+test('a panel actually open above the composer is detected', () => {
+  const screen = ['...', '❯ Disconnect this session', '  Show QR code', '> '].join('\n');
   assert.equal(readScreen(screen).panel, true);
 });
 
@@ -279,4 +288,100 @@ test('a disconnect notice reads through trailing blank rows too', () => {
 test('a pane that is genuinely empty reads as nothing', () => {
   assert.equal(readScreen('\n'.repeat(24)).connected, false);
   assert.equal(readScreen('').connected, false);
+});
+
+
+// --- guards that a mutation test found nothing was pinning ----------------
+
+function pane(...rows) {
+  // A realistic pane: transcript, then the composer, then the status row.
+  return [...rows, '\u2500'.repeat(40), '\u276f ', '\u2500'.repeat(40), '  [Opus 5] proj | ctx 9%'].join('\n');
+}
+
+function paneWithDraft(...rows) {
+  return [...rows, '\u2500'.repeat(40), '\u276f push the release branch', '\u2500'.repeat(40), '  [Opus 5] proj'].join('\n');
+}
+
+test('an unsent draft is never submitted', () => {
+  // send-keys inserts at the cursor and Enter submits the box, so a draft would
+  // go out with the command glued onto it. The idle check cannot catch this:
+  // a draft sitting in the box is perfectly still.
+  const screen = paneWithDraft('Remote Control disconnected');
+  assert.equal(readScreen(screen).composer, 'draft');
+  const { action, reason } = decide({ screen, state: { ...emptyState(), seen: true } });
+  assert.equal(action, 'none');
+  assert.equal(reason, 'composer-busy');
+});
+
+test('a composer we cannot find is treated as occupied', () => {
+  // If the layout changed and we cannot see the box, we do not type into it.
+  const screen = ['Remote Control disconnected', 'no composer anywhere'].join('\n');
+  assert.equal(readScreen(screen).composer, 'unknown');
+  assert.equal(decide({ screen }).action, 'none');
+});
+
+test('each permission-prompt shape is caught on its own', () => {
+  // The old fixture contained every alternative at once, so deleting any one
+  // of them left the suite green.
+  for (const marker of ['\u276f 1. Yes', '\u276f 1) Yes', '> 1. Yes', '\u276f Yes', '> No']) {
+    assert.equal(readScreen(pane('...', marker)).modal, true, marker);
+  }
+  for (const phrase of ['Do you want to proceed?', 'Would you like me to continue?', 'Allow this tool call?', 'proceed (y/n)', 'proceed [y/N]']) {
+    assert.equal(readScreen(pane(phrase)).modal, true, phrase);
+  }
+});
+
+test('a dialog stops the pane without eating its progress', () => {
+  // Consuming the counters first meant a sentence merely worded like a dialog
+  // reset the wait every pass, so the pane could never mature into a recovery.
+  const withDialog = pane('Do you want me to run the tests as well?');
+  const quiet = pane('just a reply');
+  let state = { ...emptyState(), seen: true };
+  const reasons = [];
+  for (const screen of [quiet, withDialog, quiet, withDialog, quiet, quiet]) {
+    const out = decide({ screen, state });
+    state = out.state;
+    reasons.push(out.reason);
+  }
+  // Four quiet checks happened across those six passes. If the dialog passes
+  // had reset the counter — as they used to — the pane would sit at 'waiting'
+  // forever and this sequence would never reach a recovery.
+  assert.deepEqual(reasons, ['waiting', 'dialog', 'waiting', 'dialog', 'waiting', 'silent']);
+});
+
+test('the panel guard is measured from the composer, not the whole transcript', () => {
+  const scrolledAway = pane('\u276f Disconnect this session', ...Array(25).fill('  ...'));
+  assert.equal(readScreen(scrolledAway).panel, false);
+});
+
+test('confirm-panel refuses when a draft is in the box', () => {
+  const screen = paneWithDraft('Remote Control', '\u276f Disconnect this session', '  Show QR code');
+  const out = decide({ screen, state: { ...emptyState(), panelPending: true } });
+  assert.equal(out.action, 'none');
+});
+
+test('the footer scoping is pinned right at its boundary', () => {
+  // The old fixture put the mention 23 rows up — outside any plausible window,
+  // so it could not have detected a regression back to whole-pane matching.
+  const justOutside = [...Array(9).fill('assistant: ...'), 'assistant: /rc active means connected',
+    '\u2500'.repeat(40), '\u276f ', '\u2500'.repeat(40), '  [Opus 5] proj'].join('\n');
+  assert.equal(readScreen(justOutside).connected, false);
+});
+
+
+test('the indicator window is tight enough to exclude the transcript', () => {
+  // Widening this window is exactly how a sentence in a reply becomes a false
+  // "connected", which then arms the missing-indicator fallback against a pane
+  // that never had Remote Control. Placed 8 rows up: outside the real window,
+  // inside a careless one.
+  const rows = [
+    'assistant: the footer shows /rc active',
+    ...Array(4).fill('assistant: ...'),
+    '\u2500'.repeat(40),
+    '\u276f ',
+    '\u2500'.repeat(40),
+    '  [Opus 5] proj | ctx 9%',
+  ];
+  assert.equal(rows.length - 1, 8, 'the mention sits 8 rows above the last line');
+  assert.equal(readScreen(rows.join('\n')).connected, false);
 });

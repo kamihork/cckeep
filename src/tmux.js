@@ -23,13 +23,29 @@ let cached;
  * holding your real conversations.
  */
 export function socketArgs(socketOverride) {
-  const socket = socketOverride ?? process.env.CCKEEP_TMUX_SOCKET;
+  // `||` rather than `??`: the config default is an empty string, and an empty
+  // string must fall through to the environment instead of shadowing it.
+  const socket = socketOverride || process.env.CCKEEP_TMUX_SOCKET;
   if (!socket) return [];
   return socket.includes('/') ? ['-S', socket] : ['-L', socket];
 }
 
+/**
+ * Settings that reach tmux from the config file rather than the environment.
+ * Set once from the CLI after the config is loaded, because every call site
+ * below is deep inside a pass and threading them through would touch every
+ * signature for no gain.
+ */
+let configured = { socket: '', binary: '' };
+
+export function configureTmux({ socket = '', binary = '' } = {}) {
+  configured = { socket, binary };
+  cached = binary && existsSync(binary) ? binary : undefined;
+}
+
 export function tmuxPath() {
   if (cached) return cached;
+  if (configured.binary && existsSync(configured.binary)) return (cached = configured.binary);
   const fromEnv = process.env.CCKEEP_TMUX;
   if (fromEnv && existsSync(fromEnv)) return (cached = fromEnv);
   for (const p of CANDIDATES) if (existsSync(p)) return (cached = p);
@@ -44,7 +60,7 @@ function tmux(args, { allowFail = true } = {}) {
   const bin = tmuxPath();
   if (!bin) return null;
   try {
-    return execFileSync(bin, [...socketArgs(), ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return execFileSync(bin, [...socketArgs(configured.socket), ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   } catch (err) {
     if (allowFail) return null;
     throw err;
@@ -56,9 +72,17 @@ export function hasServer() {
 }
 
 /** Every pane on the server, with the process currently in the foreground. */
+/**
+ * Every pane on the server, or null if tmux could not be asked.
+ *
+ * The distinction matters: an empty array used to also mean "the query failed",
+ * and the caller pruned its state to match — wiping every pane it had ever seen
+ * connected, which no pane can re-earn while it is disconnected.
+ */
 export function listPanes() {
   const out = tmux(['list-panes', '-a', '-F', '#{pane_id}\t#{pane_current_command}\t#{session_name}\t#{window_index}\t#{pane_index}\t#{pane_pid}']);
-  if (!out) return [];
+  if (out === null) return null;
+  if (!out.trim()) return [];
   return out
     .split('\n')
     .filter(Boolean)

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
+import { logPath } from './state.js';
 import { fileURLToPath } from 'node:url';
 
 export const LABEL = 'io.github.kamihork.cckeep';
@@ -24,6 +25,28 @@ function nodePath() {
   return process.execPath;
 }
 
+/** The plist is XML, so anything interpolated into it has to be escaped. */
+function xml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Environment the scheduled job needs but would not otherwise inherit. A
+ * scheduled run starts from launchd's or systemd's environment, not the shell
+ * you typed `enable` in, so a socket or tmux path set there is simply gone —
+ * and the job then watches the wrong server, forever, in silence.
+ */
+function inheritedEnv() {
+  const keep = {};
+  for (const key of ['CCKEEP_HOME', 'CCKEEP_TMUX_SOCKET', 'CCKEEP_TMUX']) {
+    if (process.env[key]) keep[key] = process.env[key];
+  }
+  return keep;
+}
+
 export function plistPath() {
   return join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
 }
@@ -32,9 +55,17 @@ export function systemdDir() {
   return join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'systemd', 'user');
 }
 
-export function renderPlist({ interval, node = nodePath(), cli = cliPath(), home }) {
-  const env = home
-    ? `    <key>EnvironmentVariables</key>\n    <dict>\n        <key>CCKEEP_HOME</key>\n        <string>${home}</string>\n    </dict>\n`
+export function renderPlist({ interval, node = nodePath(), cli = cliPath(), env = {}, log }) {
+  const entries = Object.entries(env).filter(([, v]) => v);
+  const envBlock = entries.length
+    ? `    <key>EnvironmentVariables</key>\n    <dict>\n${entries
+        .map(([k, v]) => `        <key>${xml(k)}</key>\n        <string>${xml(v)}</string>`)
+        .join('\n')}\n    </dict>\n`
+    : '';
+  // Without these, everything a scheduled run reports — a bad config, a
+  // missing tmux — goes to /dev/null and the failure is invisible.
+  const logBlock = log
+    ? `    <key>StandardOutPath</key>\n    <string>${xml(log)}</string>\n    <key>StandardErrorPath</key>\n    <string>${xml(log)}</string>\n`
     : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -44,28 +75,35 @@ export function renderPlist({ interval, node = nodePath(), cli = cliPath(), home
     <string>${LABEL}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>${node}</string>
-        <string>${cli}</string>
+        <string>${xml(node)}</string>
+        <string>${xml(cli)}</string>
         <string>once</string>
     </array>
     <key>StartInterval</key>
-    <integer>${interval}</integer>
+    <integer>${Math.max(1, Math.round(interval))}</integer>
     <key>RunAtLoad</key>
     <true/>
     <key>ProcessType</key>
     <string>Background</string>
-${env}</dict>
+${envBlock}${logBlock}</dict>
 </plist>
 `;
 }
 
-export function renderSystemdService({ node = nodePath(), cli = cliPath() }) {
+export function renderSystemdService({ node = nodePath(), cli = cliPath(), env = {} } = {}) {
+  // systemd splits ExecStart on whitespace and reads % as a specifier, so the
+  // paths are quoted and % is escaped.
+  const arg = (v) => `"${String(v).replace(/%/g, '%%').replace(/"/g, '\\"')}"`;
+  const envLines = Object.entries(env)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `Environment=${k}=${String(v).replace(/%/g, '%%')}`)
+    .join('\n');
   return `[Unit]
 Description=cckeep — keep Claude Code Remote Control alive
 
 [Service]
 Type=oneshot
-ExecStart=${node} ${cli} once
+${envLines}${envLines ? '\n' : ''}ExecStart=${arg(node)} ${arg(cli)} once
 `;
 }
 
@@ -100,7 +138,7 @@ export function install({ interval }) {
   if (os === 'darwin') {
     const p = plistPath();
     mkdirSync(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true });
-    writeFileSync(p, renderPlist({ interval, home: process.env.CCKEEP_HOME }));
+    writeFileSync(p, renderPlist({ interval, env: inheritedEnv(), log: logPath() }));
     const uid = process.getuid();
     run('launchctl', ['bootout', `gui/${uid}/${LABEL}`]);
     const ok = run('launchctl', ['bootstrap', `gui/${uid}`, p]);
@@ -109,9 +147,12 @@ export function install({ interval }) {
   if (os === 'linux') {
     const dir = systemdDir();
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'cckeep.service'), renderSystemdService({}));
+    writeFileSync(join(dir, 'cckeep.service'), renderSystemdService({ env: inheritedEnv() }));
     writeFileSync(join(dir, 'cckeep.timer'), renderSystemdTimer({ interval }));
     run('systemctl', ['--user', 'daemon-reload']);
+    // Without lingering the user manager stops at logout and the timer dies
+    // with it — silently, on exactly the remote boxes this matters most on.
+    run('loginctl', ['enable-linger', process.env.USER ?? '']);
     const ok = run('systemctl', ['--user', 'enable', '--now', 'cckeep.timer']);
     return { kind: 'systemd', path: dir, ok };
   }
@@ -158,7 +199,9 @@ export function scheduledCli() {
       const p = plistPath();
       if (!existsSync(p)) return null;
       const xml = readFileSync(p, 'utf8');
-      const args = [...xml.matchAll(/<string>([^<]*)<\/string>/g)].map((m) => m[1]);
+      const args = [...xml.matchAll(/<string>([^<]*)<\/string>/g)].map((m) =>
+        m[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'),
+      );
       return args.find((a) => a.endsWith('cckeep.js')) ?? null;
     }
     if (os === 'linux') {
@@ -166,7 +209,11 @@ export function scheduledCli() {
       if (!existsSync(p)) return null;
       const unit = readFileSync(p, 'utf8');
       const line = unit.match(/^ExecStart=(.*)$/m)?.[1] ?? '';
-      return line.split(/\s+/).find((a) => a.endsWith('cckeep.js')) ?? null;
+      // Paths are quoted, so read the quoted words rather than splitting on
+      // whitespace — a path with a space used to come back mangled.
+      const quoted = [...line.matchAll(/"([^"]*)"/g)].map((m) => m[1].replace(/%%/g, '%'));
+      const words = quoted.length ? quoted : line.split(/\s+/);
+      return words.find((a) => a.endsWith('cckeep.js')) ?? null;
     }
   } catch {}
   return null;

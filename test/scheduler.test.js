@@ -12,17 +12,52 @@ test('the launchd plist carries the interval and an absolute node path', () => {
   assert.ok(xml.includes(LABEL));
 });
 
-test('the plist passes CCKEEP_HOME through when one is set', () => {
-  const xml = renderPlist({ interval: 15, node: '/n', cli: '/c', home: '/tmp/th' });
-  assert.match(xml, /CCKEEP_HOME/);
-  assert.match(xml, /<string>\/tmp\/th<\/string>/);
-  assert.ok(!renderPlist({ interval: 15, node: '/n', cli: '/c' }).includes('CCKEEP_HOME'));
+test('the plist carries the environment a scheduled run cannot inherit', () => {
+  // launchd starts from its own environment, not the shell you typed enable in.
+  const xml = renderPlist({
+    interval: 15, node: '/n', cli: '/c',
+    env: { CCKEEP_HOME: '/tmp/th', CCKEEP_TMUX_SOCKET: 'work' },
+  });
+  assert.match(xml, /<key>CCKEEP_HOME<\/key>\s*<string>\/tmp\/th<\/string>/);
+  assert.match(xml, /<key>CCKEEP_TMUX_SOCKET<\/key>\s*<string>work<\/string>/);
+  assert.ok(!renderPlist({ interval: 15, node: '/n', cli: '/c' }).includes('EnvironmentVariables'));
+});
+
+test('the plist escapes XML metacharacters in paths', () => {
+  // A home directory containing & produced a plist launchctl refused to load.
+  const xml = renderPlist({ interval: 15, node: '/opt/a&b/node', cli: '/x<y>/cckeep.js' });
+  assert.ok(xml.includes('/opt/a&amp;b/node'));
+  assert.ok(xml.includes('/x&lt;y&gt;/cckeep.js'));
+  for (const [, inner] of xml.matchAll(/<string>([\s\S]*?)<\/string>/g)) {
+    assert.ok(!/&(?!amp;|lt;|gt;)/.test(inner), `unescaped & in ${inner}`);
+  }
+});
+
+test('the plist sends a scheduled run\'s output somewhere readable', () => {
+  const xml = renderPlist({ interval: 15, node: '/n', cli: '/c', log: '/tmp/cckeep.log' });
+  assert.match(xml, /<key>StandardErrorPath<\/key>\s*<string>\/tmp\/cckeep\.log<\/string>/);
+});
+
+test('a fractional interval cannot produce an invalid plist', () => {
+  assert.match(renderPlist({ interval: 2.5, node: '/n', cli: '/c' }), /<integer>3<\/integer>/);
 });
 
 test('the systemd unit runs a single pass, not a daemon', () => {
   const unit = renderSystemdService({ node: '/usr/bin/node', cli: '/x/bin/cckeep.js' });
   assert.match(unit, /Type=oneshot/);
-  assert.match(unit, /ExecStart=\/usr\/bin\/node \/x\/bin\/cckeep\.js once/);
+  assert.match(unit, /ExecStart="\/usr\/bin\/node" "\/x\/bin\/cckeep\.js" once/);
+});
+
+test('systemd paths with spaces stay one argument', () => {
+  // systemd splits ExecStart on whitespace; an unquoted path under
+  // /home/jan doe/ produced a unit that simply failed to start.
+  const unit = renderSystemdService({ node: '/home/jan doe/n', cli: '/home/jan doe/cckeep.js' });
+  assert.ok(unit.includes('ExecStart="/home/jan doe/n" "/home/jan doe/cckeep.js" once'));
+});
+
+test('systemd carries the environment too, with % escaped', () => {
+  const unit = renderSystemdService({ node: '/n', cli: '/c', env: { CCKEEP_TMUX_SOCKET: 'a%b' } });
+  assert.ok(unit.includes('Environment=CCKEEP_TMUX_SOCKET=a%%b'));
 });
 
 test('the systemd timer repeats on the configured interval', () => {

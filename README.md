@@ -61,12 +61,13 @@ One requirement: **Claude Code has to be running inside tmux.** A session starte
 
 This is the whole design problem. A watchdog that types into your terminal on a timer is a liability unless it is certain the moment is safe. Every one of these is enforced, and [tested](test/):
 
-- **Never during a turn.** The pane is captured twice, two seconds apart. A running turn animates a spinner and a token counter, so identical captures mean nothing is happening. Different ones mean hands off.
-- **Never into a dialog.** Permission prompts and pickers turn Enter into a selection. If a selection marker is on screen, the pass is skipped.
-- **Never into the panel you opened.** `/remote-control` opens a status panel with a QR code. cckeep only presses Enter there when it opened the panel itself.
-- **Never a session you turned off.** Only panes seen connected at least once are ever chased. Disable Remote Control deliberately and it stays off.
-- **Never in a tight loop.** One action per pane per 5 minutes.
-- **Re-checked at the last moment.** The decision is made from one capture, then re-verified after the idle wait — if the pane reconnected or opened a dialog in between, nothing is sent.
+- **Never on top of what you typed.** Enter submits whatever is in the composer, so an unsent draft would go out with the command glued onto it. If anything is in the box — or the box cannot be found at all — nothing is sent. The idle check cannot cover this: a draft sitting in the box is perfectly still.
+- **Never during a turn.** The pane is captured three times. A running turn animates a spinner and a token counter, so identical captures mean nothing is happening. Three rather than two, at an interval that is deliberately not round, because any animation whose period divides the interval would otherwise alias into identical frames.
+- **Never into a dialog.** Permission prompts turn Enter into a selection. A selection marker counts anywhere on screen; the plain English phrasings only count near the composer, since Claude Code writes sentences like "Do you want me to run the tests as well?" in ordinary replies.
+- **Never into the panel you opened.** `/remote-control` opens a status panel with a QR code. cckeep only presses Enter there when it opened the panel itself, and only if the panel is still up when it goes to press it.
+- **Never a session that only mentioned it.** The indicators are read from the last few rows, never from the transcript, so a session discussing `/rc active` is not mistaken for a connected one. A pane that has never been seen connected is only ever acted on when Claude Code itself prints that the link died.
+- **Never in a tight loop, and never twice at once.** One action per pane per 5 minutes, and a lock so that `cckeep watch` running alongside the scheduled job cannot interleave two passes into one garbled prompt.
+- **Re-checked at the last moment.** The decision is made from one capture, then re-verified after the wait — reconnected in between, dialog appeared, something typed? Nothing is sent, and the pane keeps the progress it had made rather than starting its wait over.
 
 `--dry-run` prints what it would do and sends nothing.
 
