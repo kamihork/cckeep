@@ -72,6 +72,27 @@ function parseArgs(argv) {
   return opts;
 }
 
+/**
+ * Display width, not character count: CJK labels occupy two columns each, so
+ * padEnd (which counts UTF-16 units) misaligns them.
+ */
+function displayWidth(text) {
+  let w = 0;
+  for (const ch of text) {
+    const c = ch.codePointAt(0);
+    const wide =
+      (c >= 0x1100 && c <= 0x115f) ||
+      (c >= 0x2e80 && c <= 0xa4cf) ||
+      (c >= 0xac00 && c <= 0xd7a3) ||
+      (c >= 0xf900 && c <= 0xfaff) ||
+      (c >= 0xfe30 && c <= 0xfe6f) ||
+      (c >= 0xff00 && c <= 0xff60) ||
+      (c >= 0xffe0 && c <= 0xffe6);
+    w += wide ? 2 : 1;
+  }
+  return w;
+}
+
 function version() {
   const p = new URL('../package.json', import.meta.url);
   return JSON.parse(readFileSync(p, 'utf8')).version;
@@ -110,9 +131,9 @@ function render(out, t, opts) {
     return;
   }
   // Session names carry a path hash, so they easily outrun a fixed column.
-  const width = Math.max(...out.results.map((r) => r.pane.length)) + 2;
+  const width = Math.max(...out.results.map((r) => displayWidth(r.pane))) + 2;
   for (const r of out.results) {
-    console.log(`${r.pane.padEnd(width)}${describe(r, t)}`);
+    console.log(`${r.pane}${' '.repeat(Math.max(1, width - displayWidth(r.pane)))}${describe(r, t)}`);
   }
 }
 
@@ -191,28 +212,47 @@ async function main() {
     }
     case 'doctor': {
       const bin = tmux.tmuxPath();
-      const panes = bin && tmux.hasServer() ? tmux.listPanes() : [];
+      const hasServer = Boolean(bin) && tmux.hasServer();
+      const panes = hasServer ? tmux.listPanes() ?? [] : [];
       const procs = parsePsTable(tmux.processTable());
       const claudePanes = panes.filter((p) => isTargetPane(p, procs, config.paneCommand));
+      const cli = scheduler.scheduledCli();
+
+      // `key` is stable and English so --json stays machine-readable; `label`
+      // and the yes/no words are for humans only.
       const rows = [
-        ['platform', platform()],
-        ['node', process.version],
-        ['tmux', bin || t.doctorFail],
-        ['tmux server', bin && tmux.hasServer() ? t.doctorOk : t.doctorFail],
-        ['claude panes', String(claudePanes.length)],
-        ['scheduler', scheduler.isInstalled() ? t.doctorOk : t.doctorFail],
-        [t.scheduledPath, (() => {
-          const cli = scheduler.scheduledCli();
-          if (!cli) return '—';
-          return existsSync(cli) ? cli : `${cli}  ${t.scheduledMissing}`;
-        })()],
-        ['home', homeDir()],
-        ['config', existsSync(configPath()) ? configPath() : `${configPath()} (defaults)`],
-        ['state', statePath()],
-        ['log', logPath()],
+        { key: 'platform', label: 'platform', value: platform() },
+        { key: 'node', label: 'node', value: process.version },
+        { key: 'tmux', label: 'tmux', value: bin || null },
+        { key: 'tmuxServer', label: 'tmux server', value: hasServer },
+        { key: 'tmuxSocket', label: 'tmux socket', value: config.tmuxSocket || null },
+        { key: 'claudePanes', label: 'claude panes', value: claudePanes.length },
+        { key: 'scheduler', label: 'scheduler', value: scheduler.isInstalled() },
+        { key: 'scheduledCommand', label: t.scheduledPath, value: cli },
+        { key: 'scheduledCommandExists', label: null, value: cli ? existsSync(cli) : null },
+        { key: 'home', label: 'home', value: homeDir() },
+        { key: 'config', label: 'config', value: existsSync(configPath()) ? configPath() : null },
+        { key: 'state', label: 'state', value: statePath() },
+        { key: 'log', label: 'log', value: logPath() },
       ];
-      if (opts.json) console.log(JSON.stringify(Object.fromEntries(rows), null, 2));
-      else for (const [k, v] of rows) console.log(`${k.padEnd(14)}${v}`);
+
+      if (opts.json) {
+        console.log(JSON.stringify(Object.fromEntries(rows.map((r) => [r.key, r.value])), null, 2));
+      } else {
+        const width = Math.max(...rows.filter((r) => r.label).map((r) => displayWidth(r.label))) + 2;
+        for (const r of rows) {
+          if (!r.label) continue;
+          let shown;
+          if (typeof r.value === 'boolean') shown = r.value ? t.doctorOk : t.doctorFail;
+          else if (r.value === null) shown = r.key === 'config' ? `${configPath()} (defaults)` : '—';
+          else shown = String(r.value);
+          if (r.key === 'scheduledCommand' && cli && !existsSync(cli)) shown = `${cli}  ${t.scheduledMissing}`;
+          // padEnd counts UTF-16 units, so a double-width Japanese label needs
+          // its own measure to line up.
+          const pad = ' '.repeat(Math.max(1, width - displayWidth(r.label)));
+          console.log(`${r.label}${pad}${shown}`);
+        }
+      }
       if (!bin) process.exitCode = 1;
       break;
     }

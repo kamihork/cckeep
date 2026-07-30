@@ -176,8 +176,9 @@ Defaults are tuned so you never notice it. Override in `~/.cckeep/config.json`, 
 - `settle` — milliseconds between the two captures of the idle check; raise it on a slow machine
 - `paneCommand` — foreground process name that marks a pane as Claude Code
 - `tmuxSocket` — socket name or path, if your tmux runs on something other than the default server (`tmux -L name` / `-S path`). Empty means the default
+- `tmuxBinary` — absolute path to tmux, if yours lives somewhere the usual lookup misses
 
-Every key has an env twin: `CCKEEP_INTERVAL`, `CCKEEP_COOLDOWN`, `CCKEEP_STUCK_LIMIT`, `CCKEEP_MISS_LIMIT`, `CCKEEP_SETTLE`, `CCKEEP_PANE_COMMAND`, `CCKEEP_TMUX_SOCKET`. `CCKEEP_HOME` moves state, config and log off `~/.cckeep`.
+Every key has an env twin: `CCKEEP_INTERVAL`, `CCKEEP_COOLDOWN`, `CCKEEP_STUCK_LIMIT`, `CCKEEP_MISS_LIMIT`, `CCKEEP_SETTLE`, `CCKEEP_PANE_COMMAND`, `CCKEEP_TMUX_SOCKET`, `CCKEEP_TMUX`. Whatever is set when you run `cckeep enable` is written into the scheduled job, so a socket set only in your shell does not quietly go missing from the background run. `CCKEEP_HOME` moves state, config and log off `~/.cckeep`.
 
 ## Scope
 
@@ -197,7 +198,7 @@ cckeep reads the visible text of your tmux panes to decide whether a pane is con
 - everything stays on your machine; there is no network code in this package
 - no telemetry, no account, no phone-home
 - pane text is matched against a handful of indicator strings and thrown away — only pane labels and verdicts reach the log
-- the log lives at `~/.cckeep/cckeep.log`; `cckeep logs` prints it
+- the log lives at `~/.cckeep/cckeep.log` and rolls over at 512 KB, keeping one previous generation; `cckeep logs` prints the recent lines
 
 ## How it works
 

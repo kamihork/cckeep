@@ -63,3 +63,13 @@ test('the fast path still works when the title is left alone', () => {
 test('an unrelated pane is not picked up', () => {
   assert.equal(isTargetPane({ command: 'vim', pid: 94129 }, parsePsTable(PS), 'claude'), false);
 });
+
+
+test('a Linux comm containing a slash is not mangled', () => {
+  // `migration/0` and `kworker/u16:2` are legitimate whole names on Linux;
+  // treating every slash as a path separator turned them into "0" and "u16:2".
+  const t = parsePsTable(['  10 2 migration/0', '  11 2 kworker/u16:2-events', '  12 1 /bin/sh'].join('\n'));
+  assert.equal(t.get(10).comm, 'migration/0');
+  assert.equal(t.get(11).comm, 'kworker/u16:2-events');
+  assert.equal(t.get(12).comm, 'sh', 'an absolute path is still reduced to its basename');
+});

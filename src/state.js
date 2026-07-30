@@ -80,10 +80,18 @@ export function prune(state, livePaneIds) {
   return out;
 }
 
-export function appendLog(line) {
+/** Bytes before the log is rolled over. One generation is kept. */
+const LOG_MAX_BYTES = 512 * 1024;
+
+export function appendLog(line, maxBytes = LOG_MAX_BYTES) {
   try {
     const p = logPath();
     mkdirSync(dirname(p), { recursive: true });
+    // A scheduled pass runs every 15s forever, so an append-only file that only
+    // `cckeep logs` ever reads would grow without bound.
+    try {
+      if (statSync(p).size > maxBytes) renameSync(p, `${p}.1`);
+    } catch {}
     const stamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
     writeFileSync(p, `[${stamp}] ${line}\n`, { flag: 'a' });
   } catch {}

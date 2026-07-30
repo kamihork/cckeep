@@ -172,8 +172,9 @@ Ctrl+B の衝突については何もしなくて構いません。Claude Code �
 - `settle`: 静止判定に使う2回のキャプチャの間隔(ミリ秒)。遅いマシンでは増やしてください
 - `paneCommand`: Claude Code のペインだと判定するフォアグラウンドプロセス名
 - `tmuxSocket`: 既定以外のサーバーで tmux を動かしている場合のソケット名またはパス(`tmux -L name` / `-S path`)。空なら既定サーバー
+- `tmuxBinary`: tmux が通常の探索先に無い場合の絶対パス
 
-どの項目にも環境変数版があります。`CCKEEP_INTERVAL`、`CCKEEP_COOLDOWN`、`CCKEEP_STUCK_LIMIT`、`CCKEEP_MISS_LIMIT`、`CCKEEP_SETTLE`、`CCKEEP_PANE_COMMAND`、`CCKEEP_TMUX_SOCKET` です。`CCKEEP_HOME` を指定すれば、状態・設定・ログの置き場所を `~/.cckeep` 以外に移せます。
+どの項目にも環境変数版があります。`CCKEEP_INTERVAL`、`CCKEEP_COOLDOWN`、`CCKEEP_STUCK_LIMIT`、`CCKEEP_MISS_LIMIT`、`CCKEEP_SETTLE`、`CCKEEP_PANE_COMMAND`、`CCKEEP_TMUX_SOCKET`、`CCKEEP_TMUX` です。`cckeep enable` を実行した時点で設定されている値はスケジュールされたジョブにも書き込まれるので、シェルでだけ設定したソケットがバックグラウンド実行から抜け落ちることはありません。`CCKEEP_HOME` を指定すれば、状態・設定・ログの置き場所を `~/.cckeep` 以外に移せます。
 
 ## 適用範囲
 
@@ -193,7 +194,7 @@ cckeep は接続状態を判定するために、tmux ペインに表示され�
 - すべてローカルで完結し、このパッケージにネットワークコードはありません
 - テレメトリなし、アカウントなし、外部送信なし
 - ペインのテキストは数個の判定文字列と照合したあとすぐ破棄します。ログに残るのはペイン名と判定結果だけです
-- ログの場所は `~/.cckeep/cckeep.log` です。`cckeep logs` で表示できます
+- ログの場所は `~/.cckeep/cckeep.log` で、512KB を超えると1世代だけ残してローテーションします。`cckeep logs` で直近の行を表示できます
 
 ## 仕組み
 

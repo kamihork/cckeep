@@ -7,9 +7,13 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # macOS is the primary platform — the ps format, the plist and launchctl all
+    # differ there — so it has to be exercised, not assumed.
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest]
         node: [18, 20, 22]
     steps:
       - uses: actions/checkout@v4

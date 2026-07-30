@@ -15,8 +15,12 @@ export function parsePsTable(output) {
     const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/);
     if (!m) continue;
     const [, pid, ppid, rawComm] = m;
-    // macOS prints the full path here for some processes; Linux prints a name.
-    const comm = rawComm.trim().split('/').pop();
+    // macOS prints a full path for some processes, so those get reduced to the
+    // basename. Linux prints a bare name that can legitimately contain a slash
+    // (`migration/0`, `kworker/u16:2`), and splitting those would mangle them —
+    // so only an absolute path is treated as a path.
+    const raw = rawComm.trim();
+    const comm = raw.startsWith('/') ? raw.slice(raw.lastIndexOf('/') + 1) : raw;
     table.set(Number(pid), { ppid: Number(ppid), comm });
   }
   return table;
