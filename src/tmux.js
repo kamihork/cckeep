@@ -79,25 +79,56 @@ export function hasServer() {
  * and the caller pruned its state to match — wiping every pane it had ever seen
  * connected, which no pane can re-earn while it is disconnected.
  */
+/**
+ * Field separator for `list-panes -F`.
+ *
+ * Not a tab, and not any control character: outside an interactive shell — a
+ * launchd job, a cron entry — tmux replaces those in format output with "_".
+ * The rows then parse into one field each, every pane is discarded, and cckeep
+ * reports "no panes running Claude Code" while doing nothing at all. That is
+ * how it ran 15,000 times on the author's machine without ever acting.
+ */
+export const SEP = '|;|';
+
+/** Fixed fields first, free-form session name last so it can contain anything. */
+export const FORMAT = ['#{pane_id}', '#{pane_pid}', '#{window_index}', '#{pane_index}',
+  '#{pane_current_command}', '#{session_name}'].join(SEP);
+
 export function listPanes() {
-  const out = tmux(['list-panes', '-a', '-F', '#{pane_id}\t#{pane_current_command}\t#{session_name}\t#{window_index}\t#{pane_index}\t#{pane_pid}']);
+  const out = tmux(['list-panes', '-a', '-F', FORMAT]);
   if (out === null) return null;
+  return parsePaneRows(out);
+}
+
+/** The parsing half, split out so it can be tested without a tmux server. */
+export function parsePaneRows(out) {
   if (!out.trim()) return [];
-  return out
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => {
-      const [id, command, session, windowIndex, paneIndex, pid] = line.split('\t');
-      return {
-        id,
-        command,
-        session,
-        windowIndex,
-        paneIndex,
-        pid: Number(pid),
-        label: `${session}:${windowIndex}.${paneIndex}`,
-      };
+
+  const rows = [];
+  for (const line of out.split('\n')) {
+    if (!line) continue;
+    const parts = line.split(SEP);
+    if (parts.length < 6) continue;
+    const [id, pid, windowIndex, paneIndex, command] = parts;
+    // The session name is whatever is left, rejoined, so a separator inside it
+    // cannot shift the other fields.
+    const session = parts.slice(5).join(SEP);
+    if (!/^%\d+$/.test(id) || !/^\d+$/.test(pid)) continue;
+    rows.push({
+      id,
+      command,
+      session,
+      windowIndex,
+      paneIndex,
+      pid: Number(pid),
+      label: `${session}:${windowIndex}.${paneIndex}`,
     });
+  }
+
+  // Output that yields nothing usable is a parse failure, not an empty server.
+  // Returning [] here would prune away every pane cckeep has ever seen.
+  if (rows.length === 0) return null;
+  return rows;
 }
 
 /**
