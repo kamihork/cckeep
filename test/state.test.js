@@ -7,7 +7,7 @@ import { join } from 'node:path';
 const HOME = mkdtempSync(join(tmpdir(), 'cckeep-state-'));
 process.env.CCKEEP_HOME = HOME;
 
-const { appendLog, logPath, statePath, saveState, loadState, acquireLock, releaseLock } = await import('../src/state.js');
+const { appendLog, logPath, statePath, saveState, loadState, acquireLock, releaseLock, markEarned, claimNudge } = await import('../src/state.js');
 
 test('the log rolls over instead of growing forever', () => {
   // A scheduled pass runs every 15s for as long as the machine is up.
@@ -61,6 +61,22 @@ test('a stale lock does not block forever', async () => {
   await new Promise((r) => setTimeout(r, 5));
   assert.equal(acquireLock(1), true, 'a lock older than the staleness window is taken over');
   releaseLock();
+});
+
+
+test('the thank-you is earned by helping, and shown exactly once', () => {
+  // Re-arms happen in the scheduled run, whose stdout goes to the log file, so
+  // the moment is recorded there and the note is printed the next time the user
+  // runs cckeep themselves.
+  rmSync(join(HOME, 'earned'), { force: true });
+  rmSync(join(HOME, 'nudged'), { force: true });
+
+  assert.equal(claimNudge(), false, 'nothing to thank anyone for yet');
+  markEarned();
+  assert.equal(claimNudge(), true, 'the first interactive run after it helped');
+  assert.equal(claimNudge(), false, 'and never again');
+  markEarned();
+  assert.equal(claimNudge(), false, 'helping again does not re-arm the note');
 });
 
 process.on('exit', () => rmSync(HOME, { recursive: true, force: true }));

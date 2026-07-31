@@ -27,6 +27,13 @@ const en = {
   noLog: 'No log yet.',
   doctorOk: 'ok',
   doctorFail: 'missing',
+  nudge: [
+    '',
+    '  cckeep re-armed a session for you. If that saved you a walk back to your desk:',
+    '    \u2b50 https://github.com/kamihork/cckeep',
+    '    \ud83d\udc4d https://github.com/anthropics/claude-code/issues/34255  (the upstream bug \u2014 worth more than a star)',
+    '',
+  ].join('\n'),
 };
 
 const ja = {
@@ -58,6 +65,13 @@ const ja = {
   noLog: 'まだログはありません。',
   doctorOk: 'ok',
   doctorFail: '見つかりません',
+  nudge: [
+    '',
+    '  cckeep がセッションを繋ぎ直しました。机に戻る手間が省けたなら:',
+    '    \u2b50 https://github.com/kamihork/cckeep',
+    '    \ud83d\udc4d https://github.com/anthropics/claude-code/issues/34255 (本家の不具合。star より効きます)',
+    '',
+  ].join('\n'),
 };
 
 export function pickLang(explicit) {

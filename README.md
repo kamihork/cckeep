@@ -17,6 +17,10 @@
   <p><a href="https://kamihork.github.io/cckeep/">Website</a> | English | <a href="README.ja.md">日本語</a></p>
 </div>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kamihork/cckeep/main/assets/demo.gif" width="880" alt="cckeep detecting a dead Remote Control link and re-arming it">
+</p>
+
 ## The problem
 
 [Remote Control](https://code.claude.com/docs/en/remote-control) lets you drive a local Claude Code session from your phone or from claude.ai. It reconnects on its own when the link drops — for **5 attempts with 1/2/4/8/16-second backoff**. That is a **31-second** budget. Close your laptop lid, switch Wi-Fi, ride an elevator, and the budget is gone. The connection closes and never comes back.

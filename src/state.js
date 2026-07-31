@@ -62,6 +62,35 @@ export function acquireLock(staleAfterMs = 120000) {
   }
 }
 
+/**
+ * The one-time thank-you.
+ *
+ * Split into "earned" and "shown" on purpose: re-arms happen in the scheduled
+ * run, whose stdout goes to the log file where nobody reads it. So the moment
+ * is recorded there, and the note is printed the next time the user actually
+ * runs cckeep themselves.
+ */
+export function markEarned() {
+  try {
+    mkdirSync(homeDir(), { recursive: true });
+    const p = join(homeDir(), 'earned');
+    if (!existsSync(p)) writeFileSync(p, new Date().toISOString());
+  } catch {}
+}
+
+/** True exactly once: the first interactive run after cckeep first helped. */
+export function claimNudge() {
+  try {
+    if (!existsSync(join(homeDir(), 'earned'))) return false;
+    const shown = join(homeDir(), 'nudged');
+    if (existsSync(shown)) return false;
+    writeFileSync(shown, new Date().toISOString());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function releaseLock() {
   try {
     rmSync(join(homeDir(), 'cckeep.lock'), { force: true });

@@ -17,6 +17,10 @@
   <p><a href="https://kamihork.github.io/cckeep/">Website</a> | <a href="README.md">English</a> | 日本語</p>
 </div>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kamihork/cckeep/main/assets/demo.gif" width="880" alt="切断されたリモートコントロールを cckeep が検知して繋ぎ直すところ">
+</p>
+
 ## 何が問題か
 
 [リモートコントロール](https://code.claude.com/docs/en/remote-control)は、手元で動いている Claude Code のセッションをスマホや claude.ai から操作する機能です。接続が切れても自動で再接続してくれますが、その回数は **1/2/4/8/16秒の間隔で5回まで**、合計 **31秒**しかありません。ノートを閉じる、Wi-Fi を切り替える、エレベーターに乗る。それだけで再試行は尽き、接続は閉じられて二度と戻りません。

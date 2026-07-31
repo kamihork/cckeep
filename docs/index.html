@@ -97,6 +97,9 @@
   .zeroes { margin-top: 26px; color: var(--muted); font-size: 14px; letter-spacing: 0.02em; }
   .zeroes b { color: var(--text-2); font-weight: 600; }
 
+  .shot { margin: 40px auto 0; max-width: 900px; }
+  .shot img { width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: var(--shadow); display: block; }
+
   /* the budget bar — the one visual that carries the whole pitch */
   .budget { margin: 46px auto 0; max-width: 720px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px 26px; text-align: left; }
   .budget .cap { color: var(--muted); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
@@ -175,6 +178,10 @@
       <a class="btn ghost" href="https://github.com/kamihork/cckeep/blob/main/README.md" id="ctaDocs" data-i18n="ctaDocs">README</a>
     </div>
     <p class="zeroes" data-i18n="zeroes"><b>Zero dependencies</b> · <b>zero cloud</b> · <b>zero telemetry</b> — it reads your tmux panes and nothing leaves the machine.</p>
+
+    <div class="shot">
+      <img src="assets/demo.gif" alt="cckeep detecting a dead Remote Control link and re-arming it" loading="lazy">
+    </div>
 
     <div class="budget">
       <div class="cap" data-i18n="budgetCap">Remote Control's entire reconnect budget</div>

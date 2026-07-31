@@ -1,7 +1,7 @@
 import { decide, readScreen } from './detect.js';
 import { parsePsTable, isTargetPane } from './procs.js';
 import * as realTmux from './tmux.js';
-import { loadState, saveState, forPane, prune, appendLog, acquireLock, releaseLock } from './state.js';
+import { loadState, saveState, forPane, prune, appendLog, acquireLock, releaseLock, markEarned } from './state.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -119,6 +119,7 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
 
   if (!dryRun) {
     saveState(prune(state, panes.map((p) => p.id)));
+    if (acted > 0) markEarned();
     releaseLock();
   }
   return { results, acted };

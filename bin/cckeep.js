@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { platform } from 'node:os';
 import { runPass } from '../src/run.js';
 import { loadConfig, configPath } from '../src/config.js';
-import { logPath, statePath, homeDir } from '../src/state.js';
+import { logPath, statePath, homeDir, claimNudge } from '../src/state.js';
 import * as tmux from '../src/tmux.js';
 import * as scheduler from '../src/scheduler.js';
 import { pickLang, strings } from '../src/i18n.js';
@@ -137,6 +137,16 @@ function render(out, t, opts) {
   }
 }
 
+/**
+ * Printed once, the first time the user runs cckeep after it has actually
+ * helped. Never from the scheduled run — its stdout goes to the log file — and
+ * never into a pipe, which is why this is gated on an attached terminal.
+ */
+function maybeNudge(t, opts) {
+  if (opts.json || !process.stdout.isTTY) return;
+  if (claimNudge()) console.log(t.nudge);
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   const lang = pickLang(opts.lang);
@@ -173,11 +183,13 @@ async function main() {
     case 'status': {
       const out = await runPass({ config, dryRun: true });
       render(out, t, opts);
+      maybeNudge(t, opts);
       break;
     }
     case 'once': {
       const out = await runPass({ config, dryRun: opts.dryRun });
       render(out, t, opts);
+      maybeNudge(t, opts);
       break;
     }
     case 'watch': {
@@ -253,6 +265,7 @@ async function main() {
           console.log(`${r.label}${pad}${shown}`);
         }
       }
+      maybeNudge(t, opts);
       if (!bin) process.exitCode = 1;
       break;
     }
@@ -261,6 +274,7 @@ async function main() {
       if (!existsSync(p)) return console.log(t.noLog);
       const lines = readFileSync(p, 'utf8').trim().split('\n');
       console.log(lines.slice(-40).join('\n'));
+      maybeNudge(t, opts);
       break;
     }
     default:
