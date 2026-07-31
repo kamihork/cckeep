@@ -160,3 +160,8 @@ export function sendText(paneId, text) {
 export function sendEnter(paneId) {
   tmux(['send-keys', '-t', paneId, 'Enter']);
 }
+
+/** A single named key (Up, Down, ...), for walking the status panel's focus. */
+export function sendKey(paneId, key) {
+  tmux(['send-keys', '-t', paneId, key]);
+}

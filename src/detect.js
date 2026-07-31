@@ -23,8 +23,34 @@ const INPUT_LINE = /^[❯>]/;
 /** The notification Claude Code prints when it has given up for good. */
 const FAILED_NOTICE = /Remote Control disconnected|Remote Control failed/;
 
-/** The /remote-control status panel — its first entry is "Disconnect this session". */
+/** The /remote-control status panel. */
 const PANEL = /Disconnect this session|(?:Show|Hide) QR code/;
+
+/**
+ * Read the status panel's selectable items and where the focus marker sits.
+ *
+ * Pressing Enter selects whatever is focused, and the default focus is
+ * "Continue" — not "Disconnect this session". Blindly pressing Enter therefore
+ * closes the panel and fixes nothing, which is exactly what the wedged-bridge
+ * recovery used to do. (Found live: the panel lists Disconnect / Show QR code /
+ * ❯ Continue.) Navigation has to be computed from what is actually focused,
+ * and verified again after every keystroke.
+ *
+ * Returns { focused, disconnect } as item indices, or null when the panel is
+ * not on screen in a recognisable shape.
+ */
+export function readPanel(screen) {
+  const lines = String(screen).split('\n');
+  const items = [];
+  for (const line of lines) {
+    const m = line.match(/^\s*(❯)?\s*(Disconnect this session|(?:Show|Hide) QR code|Continue)\b/);
+    if (m) items.push({ name: m[2], focused: Boolean(m[1]) });
+  }
+  const disconnect = items.findIndex((i) => i.name === 'Disconnect this session');
+  const focused = items.findIndex((i) => i.focused);
+  if (disconnect === -1 || focused === -1) return null;
+  return { focused, disconnect, count: items.length };
+}
 
 /**
  * Anything that turns Enter into a selection: permission prompts, pickers,
@@ -174,9 +200,12 @@ export function decide({ screen, state = emptyState(), now = 0, config = {} }) {
   // panel to read the QR code.
   if (next.panelPending) {
     next.panelPending = false;
-    // Same rules as any other keystroke: not into a dialog, and not on top of
-    // something the user has typed.
-    if (s.panel && !s.modal && s.composer === 'empty') {
+    // Not into a dialog, and not on top of a visible draft. The composer is
+    // hidden while the panel is open — it reads as 'unknown' — and demanding
+    // 'empty' here silently disabled this whole recovery path. 'draft' means
+    // the panel text is stale transcript and the user is mid-sentence below
+    // it, which is exactly when Enter must not be pressed.
+    if (s.panel && !s.modal && s.composer !== 'draft') {
       next.lastActionAt = 0; // let the next pass re-arm without waiting out the cooldown
       return { action: 'confirm-panel', reason: 'stuck-cycle', state: next };
     }

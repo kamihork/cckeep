@@ -1,0 +1,9 @@
+   Remote Control
+
+   This session is available in the Claude mobile app and at https://claude.ai/code/session_XXXX.
+
+     Disconnect this session
+     Show QR code  Scan with your phone to open this session
+   ❯ Continue
+
+   Enter to select · Esc to continue

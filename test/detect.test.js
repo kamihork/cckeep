@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decide, emptyState, readScreen, DEFAULTS } from '../src/detect.js';
+import { decide, emptyState, readScreen, readPanel, DEFAULTS } from '../src/detect.js';
+import { readFileSync } from 'node:fs';
 
 // Screens shaped like what Claude Code actually paints. The footer indicator and
 // the notification wording are the only parts the detector reads.
@@ -384,4 +385,35 @@ test('the indicator window is tight enough to exclude the transcript', () => {
   ];
   assert.equal(rows.length - 1, 8, 'the mention sits 8 rows above the last line');
   assert.equal(readScreen(rows.join('\n')).connected, false);
+});
+
+
+// --- the status panel's focus ---------------------------------------------
+// Captured live: the panel's default focus is "Continue", not "Disconnect this
+// session". A bare Enter therefore closed the panel and fixed nothing — the
+// wedged-bridge recovery looped harmlessly forever.
+
+const REAL_PANEL = readFileSync(new URL('./fixtures-panel.txt', import.meta.url), 'utf8');
+
+test('the real panel reads as: Continue focused, Disconnect first', () => {
+  const p = readPanel(REAL_PANEL);
+  assert.deepEqual(p, { focused: 2, disconnect: 0, count: 3 });
+});
+
+test('a panel with Disconnect focused needs no navigation', () => {
+  const p = readPanel(REAL_PANEL.replace('  Disconnect this session', '\u276f Disconnect this session')
+                                .replace('\u276f Continue', '  Continue'));
+  assert.equal(p.focused, p.disconnect);
+});
+
+test('an unrecognisable panel reads as null, so nothing is pressed', () => {
+  assert.equal(readPanel('Remote Control\nsomething entirely different'), null);
+  assert.equal(readPanel(''), null);
+  // items but no focus marker: also not actionable
+  assert.equal(readPanel('  Disconnect this session\n  Continue'), null);
+});
+
+test('Continue in ordinary prose is not a panel item', () => {
+  const s = 'assistant: press Continue to proceed with the plan\n> ';
+  assert.equal(readPanel(s), null);
 });

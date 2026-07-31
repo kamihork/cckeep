@@ -1,4 +1,4 @@
-import { decide, readScreen } from './detect.js';
+import { decide, readScreen, readPanel } from './detect.js';
 import { parsePsTable, isTargetPane } from './procs.js';
 import * as realTmux from './tmux.js';
 import { loadState, saveState, forPane, prune, appendLog, acquireLock, releaseLock, markEarned } from './state.js';
@@ -94,7 +94,7 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
     const recheck = readScreen(tmux.capture(pane.id));
     const stillSafe =
       action === 'confirm-panel'
-        ? recheck.panel && !recheck.modal && recheck.composer === 'empty'
+        ? recheck.panel && !recheck.modal && recheck.composer !== 'draft'
         : !recheck.connected && !recheck.modal && !recheck.panel && recheck.composer === 'empty';
     if (!stillSafe) {
       result.action = 'none';
@@ -105,6 +105,25 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
     }
 
     if (action === 'confirm-panel') {
+      // The panel's default focus is "Continue", so a bare Enter would just
+      // close it. Walk the focus to "Disconnect this session", re-reading the
+      // pane after every keystroke; if the panel ever stops looking the way we
+      // expect, stop touching it.
+      let moved = 0;
+      let panel = readPanel(tmux.capture(pane.id));
+      while (panel && panel.focused !== panel.disconnect && moved < 6) {
+        tmux.sendKey(pane.id, panel.focused > panel.disconnect ? 'Up' : 'Down');
+        moved += 1;
+        await sleep(300);
+        panel = readPanel(tmux.capture(pane.id));
+      }
+      if (!panel || panel.focused !== panel.disconnect) {
+        result.action = 'none';
+        result.reason = 'panel-shape-changed';
+        state[pane.id] = { ...after, ...abortedCounters(before) };
+        results.push(result);
+        continue;
+      }
       tmux.sendEnter(pane.id);
       appendLog(`${pane.label}: closing wedged bridge via panel`);
     } else {

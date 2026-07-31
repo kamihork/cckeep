@@ -194,4 +194,79 @@ test('two passes cannot act on the same pane at once', async () => {
   releaseLock();
 });
 
+
+
+test('the wedged-bridge recovery walks the focus to Disconnect before pressing Enter', async () => {
+  // Default focus is Continue (two below Disconnect), so two Ups then Enter.
+  const PANEL_CONT = ['Remote Control', '    Disconnect this session', '    Show QR code  Scan', '  \u276f Continue', '  Enter to select \u00b7 Esc to continue'].join('\n');
+  const PANEL_QR   = PANEL_CONT.replace('    Show QR code', '  \u276f Show QR code').replace('\u276f Continue', '  Continue');
+  const PANEL_DISC = PANEL_CONT.replace('    Disconnect this session', '  \u276f Disconnect this session').replace('\u276f Continue', '  Continue');
+  saveState({ '%1': { ...emptyState(), seen: true, panelPending: true } });
+  // decide, three idle samples and the recheck all see the untouched panel;
+  // then each Up is verified against a fresh capture.
+  const screens = [PANEL_CONT, PANEL_CONT, PANEL_CONT, PANEL_CONT, PANEL_CONT, PANEL_CONT, PANEL_QR, PANEL_DISC];
+  const sent = [];
+  let i = 0;
+  const tmux = {
+    sent,
+    tmuxPath: () => '/fake/tmux',
+    hasServer: () => true,
+    processTable: () => '',
+    listPanes: () => [{ id: '%1', command: 'claude', pid: 0, session: 'dev', windowIndex: '0', paneIndex: '0', label: 'dev:0.0' }],
+    capture: () => screens[Math.min(i++, screens.length - 1)],
+    sendText: (_id, text) => sent.push(text),
+    sendKey: (_id, key) => sent.push(`<${key}>`),
+    sendEnter: () => sent.push('<Enter>'),
+  };
+  const { acted } = await runPass({ tmux, config: config(), now: 5000 });
+  assert.equal(acted, 1);
+  assert.deepEqual(sent, ['<Up>', '<Up>', '<Enter>'], 'verified navigation, then Enter');
+});
+
+test('navigation direction follows where Disconnect actually is', async () => {
+  // Defensive: if a future layout puts the focus above Disconnect, the walk
+  // must go Down, not blindly Up.
+  const P_TOP  = ['Remote Control', '  \u276f Continue', '    Disconnect this session', '  Enter to select'].join('\n');
+  const P_DONE = ['Remote Control', '    Continue', '  \u276f Disconnect this session', '  Enter to select'].join('\n');
+  saveState({ '%1': { ...emptyState(), seen: true, panelPending: true } });
+  const sent = [];
+  let i = 0;
+  const screens = [P_TOP, P_TOP, P_TOP, P_TOP, P_TOP, P_TOP, P_DONE];
+  const tmux = {
+    tmuxPath: () => '/fake/tmux', hasServer: () => true, processTable: () => '',
+    listPanes: () => [{ id: '%1', command: 'claude', pid: 0, session: 'dev', windowIndex: '0', paneIndex: '0', label: 'dev:0.0' }],
+    capture: () => screens[Math.min(i++, screens.length - 1)],
+    sendText: (_id, t) => sent.push(t),
+    sendKey: (_id, k) => sent.push(`<${k}>`),
+    sendEnter: () => sent.push('<Enter>'),
+  };
+  const { acted } = await runPass({ tmux, config: config(), now: 6000 });
+  assert.equal(acted, 1);
+  assert.deepEqual(sent, ['<Down>', '<Enter>']);
+});
+
+test('a panel that stops looking right is left alone', async () => {
+  const PANEL_CONT = ['Remote Control', '    Disconnect this session', '    Show QR code', '  \u276f Continue', '  Enter to select'].join('\n');
+  saveState({ '%1': { ...emptyState(), seen: true, panelPending: true } });
+  const sent = [];
+  let i = 0;
+  // After the first Up the panel vanishes entirely.
+  const screens = [PANEL_CONT, PANEL_CONT, PANEL_CONT, PANEL_CONT, PANEL_CONT, PANEL_CONT, 'just a conversation\n> '];
+  const tmux = {
+    sent,
+    tmuxPath: () => '/fake/tmux',
+    hasServer: () => true,
+    processTable: () => '',
+    listPanes: () => [{ id: '%1', command: 'claude', pid: 0, session: 'dev', windowIndex: '0', paneIndex: '0', label: 'dev:0.0' }],
+    capture: () => screens[Math.min(i++, screens.length - 1)],
+    sendText: (_id, text) => sent.push(text),
+    sendKey: (_id, key) => sent.push(`<${key}>`),
+    sendEnter: () => sent.push('<Enter>'),
+  };
+  const { acted, results } = await runPass({ tmux, config: config(), now: 5000 });
+  assert.equal(acted, 0);
+  assert.deepEqual(sent, ['<Up>'], 'one probe, then hands off');
+  assert.equal(results[0].reason, 'panel-shape-changed');
+});
+
 process.on('exit', () => rmSync(HOME, { recursive: true, force: true }));
