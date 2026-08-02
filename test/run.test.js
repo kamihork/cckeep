@@ -269,4 +269,22 @@ test('a panel that stops looking right is left alone', async () => {
   assert.equal(results[0].reason, 'panel-shape-changed');
 });
 
+
+
+test('each real send consumes one attempt from the breaker', async () => {
+  saveState({ '%1': { ...emptyState(), seen: true } });
+  const cfg = config();
+  for (let i = 1; i <= 4; i++) {
+    const tmux = fakeTmux({ screens: [DISCONNECTED] });
+    const { acted } = await runPass({ tmux, config: cfg, now: 1000 + i * 1000 });
+    if (i <= 3) {
+      assert.equal(acted, 1, `attempt ${i} fires`);
+      assert.equal(loadState()['%1'].fired, i);
+    } else {
+      assert.equal(acted, 0, 'the fourth is refused');
+      assert.deepEqual(tmux.sent, []);
+    }
+  }
+});
+
 process.on('exit', () => rmSync(HOME, { recursive: true, force: true }));

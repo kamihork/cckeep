@@ -107,6 +107,8 @@ const REASON_KEY = {
   cooldown: 'cooldown',
   busy: 'busy',
   'composer-busy': 'composerBusy',
+  unavailable: 'unavailable',
+  'gave-up': 'gaveUp',
   recovered: 'recovered',
 };
 

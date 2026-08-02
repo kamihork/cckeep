@@ -23,6 +23,23 @@ const INPUT_LINE = /^[❯>]/;
 /** The notification Claude Code prints when it has given up for good. */
 const FAILED_NOTICE = /Remote Control disconnected|Remote Control failed/;
 
+/**
+ * Replies meaning Remote Control cannot work here at all — wrong auth, wrong
+ * plan, org policy, a gateway in the way. Typing /remote-control again cannot
+ * fix any of these, and that is precisely what happened in the wild: a session
+ * fell back to API-key auth overnight, the indicator vanished, and cckeep
+ * retyped the command every five minutes for two days — 151 times — because
+ * every failure state it knew about was a recoverable one.
+ */
+const UNAVAILABLE = new RegExp([
+  'available with Claude for Enterprise',
+  'requires a claude\\.ai subscription',
+  'requires a full-scope login token',
+  'disabled by your organization',
+  'only available when using Claude via api\\.anthropic\\.com',
+  'not yet enabled for your account',
+].join('|'));
+
 /** The /remote-control status panel. */
 const PANEL = /Disconnect this session|(?:Show|Hide) QR code/;
 
@@ -100,6 +117,8 @@ const INDICATOR_LINES = 4;
 export const DEFAULTS = {
   /** Consecutive checks stuck in "reconnecting" before we treat the bridge as wedged. */
   stuckLimit: 8,
+  /** Re-arms allowed per outage. Reset only by seeing the link healthy again. */
+  maxRearms: 3,
   /** Consecutive checks with no indicator at all before re-arming a pane that had one. */
   missLimit: 4,
   /** Seconds before the same pane may be acted on again. */
@@ -107,7 +126,7 @@ export const DEFAULTS = {
 };
 
 export function emptyState() {
-  return { seen: false, miss: 0, stuck: 0, panelPending: false, lastActionAt: 0 };
+  return { seen: false, miss: 0, stuck: 0, panelPending: false, lastActionAt: 0, fired: 0 };
 }
 
 /**
@@ -168,6 +187,7 @@ export function readScreen(screen, footerLines = FOOTER_LINES) {
     // Signals that make cckeep hold off. A false positive here costs a skipped
     // pass; missing one costs a keystroke in the wrong place.
     panel: PANEL.test(footer),
+    unavailable: UNAVAILABLE.test(footer),
     modal: MODAL_MARKER.test(lines.join('\n')) || MODAL_PROMPT.test(modalWindow),
 
     composer: readComposer(lines),
@@ -217,7 +237,18 @@ export function decide({ screen, state = emptyState(), now = 0, config = {} }) {
     next.seen = true;
     next.miss = 0;
     next.stuck = 0;
+    next.fired = 0;
     return { action: 'none', reason: 'connected', state: next };
+  }
+
+  // Remote Control cannot work here (auth, plan, policy). Typing the command
+  // again cannot change that, so stop treating this pane as one to chase; it
+  // re-earns attention only by being seen connected again.
+  if (s.unavailable) {
+    next.seen = false;
+    next.miss = 0;
+    next.stuck = 0;
+    return { action: 'none', reason: 'unavailable', state: next };
   }
 
   // Held off before any counter moves. Doing this after the counters were
@@ -268,6 +299,12 @@ export function decide({ screen, state = emptyState(), now = 0, config = {} }) {
 
   if (state.lastActionAt && now - state.lastActionAt < cfg.cooldown) {
     return { action: 'none', reason: 'cooldown', state: next };
+  }
+
+  // The breaker for failure messages we do not know about: if re-arming keeps
+  // not producing a healthy link, retrying on a timer is spam, not recovery.
+  if ((next.fired ?? 0) >= cfg.maxRearms) {
+    return { action: 'none', reason: 'gave-up', state: next };
   }
 
   next.lastActionAt = now;

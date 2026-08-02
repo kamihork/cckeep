@@ -21,16 +21,17 @@ export const BASE = {
   tmuxBinary: '',
 };
 
-const NUMERIC = new Set(['stuckLimit', 'missLimit', 'cooldown', 'interval', 'settle', 'keyDelay']);
+const NUMERIC = new Set(['stuckLimit', 'missLimit', 'cooldown', 'interval', 'settle', 'keyDelay', 'maxRearms']);
 
 /** launchd and systemd both want whole seconds, and a fraction breaks the plist. */
-const INTEGER = new Set(['interval', 'stuckLimit', 'missLimit']);
+const INTEGER = new Set(['interval', 'stuckLimit', 'missLimit', 'maxRearms']);
 
 const ENV = {
   CCKEEP_INTERVAL: 'interval',
   CCKEEP_COOLDOWN: 'cooldown',
   CCKEEP_STUCK_LIMIT: 'stuckLimit',
   CCKEEP_MISS_LIMIT: 'missLimit',
+  CCKEEP_MAX_REARMS: 'maxRearms',
   CCKEEP_SETTLE: 'settle',
   CCKEEP_KEY_DELAY: 'keyDelay',
   CCKEEP_PANE_COMMAND: 'paneCommand',

@@ -417,3 +417,62 @@ test('Continue in ordinary prose is not a panel item', () => {
   const s = 'assistant: press Continue to proceed with the plan\n> ';
   assert.equal(readPanel(s), null);
 });
+
+
+// --- permanent failure and the retry breaker -------------------------------
+// Observed live: a session fell back to API-key auth overnight; the indicator
+// vanished; every failure state cckeep knew was a recoverable one, so it
+// retyped /remote-control every cooldown for two days — 151 times.
+
+function paneWithNotice(notice) {
+  return [
+    '\u276f /remote-control',
+    `  \u23bf  ${notice}`,
+    '\u2500'.repeat(40),
+    '\u276f ',
+    '\u2500'.repeat(40),
+    '  [Opus 5] proj | ctx 9%',
+  ].join('\n');
+}
+
+test('an unavailability reply stops the chase entirely', () => {
+  const screen = paneWithNotice('/remote-control is available with Claude for Enterprise \u2014 ask your admin about migrating from API-key access.');
+  const out = decide({ screen, state: { ...emptyState(), seen: true, miss: 3 }, now: 1000 });
+  assert.equal(out.action, 'none');
+  assert.equal(out.reason, 'unavailable');
+  assert.equal(out.state.seen, false, 'the pane must re-earn attention by being seen connected');
+  // and with seen cleared, the silent path can never mature again
+  const silent = ['quiet', '> ', '  [Opus 5] proj'].join('\n');
+  let st = out.state;
+  for (let i = 0; i < 10; i++) st = decide({ screen: silent, state: st, now: 1000 + i }).state;
+  assert.equal(decide({ screen: silent, state: st, now: 2000 }).action, 'none');
+});
+
+test('every documented unavailability wording is recognised', () => {
+  for (const n of [
+    '/remote-control is available with Claude for Enterprise',
+    'Remote Control requires a claude.ai subscription',
+    'Remote Control requires a full-scope login token',
+    'Remote Control is disabled by your organization',
+    'Remote Control is only available when using Claude via api.anthropic.com',
+    'Remote Control is not yet enabled for your account',
+  ]) {
+    assert.equal(readScreen(paneWithNotice(n)).unavailable, true, n);
+  }
+});
+
+test('the breaker refuses a fourth re-arm until the link is seen healthy', () => {
+  const dead = paneWithNotice('Remote Control disconnected');
+  const spent = { ...emptyState(), seen: true, fired: 3 };
+  const out = decide({ screen: dead, state: spent, now: 99999 });
+  assert.equal(out.action, 'none');
+  assert.equal(out.reason, 'gave-up');
+});
+
+test('seeing the link healthy resets the breaker', () => {
+  const healthy = ['> ', '  [Opus 5] proj | ctx 9%      /rc'].join('\n');
+  const st = decide({ screen: healthy, state: { ...emptyState(), seen: true, fired: 3 } }).state;
+  assert.equal(st.fired, 0);
+  const dead = paneWithNotice('Remote Control disconnected');
+  assert.equal(decide({ screen: dead, state: st, now: 99999 }).action, 'rearm');
+});

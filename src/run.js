@@ -130,7 +130,8 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
       tmux.sendText(pane.id, '/remote-control');
       await sleep(config.keyDelay ?? 1000);
       tmux.sendEnter(pane.id);
-      appendLog(`${pane.label}: re-arming Remote Control (${reason})`);
+      state[pane.id] = { ...state[pane.id], fired: (before.fired ?? 0) + 1 };
+      appendLog(`${pane.label}: re-arming Remote Control (${reason}, attempt ${(before.fired ?? 0) + 1})`);
     }
     acted += 1;
     results.push(result);

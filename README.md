@@ -71,6 +71,7 @@ This is the whole design problem. A watchdog that types into your terminal on a 
 - **Never into the panel you opened.** `/remote-control` opens a status panel with a QR code. cckeep only presses Enter there when it opened the panel itself, and only if the panel is still up when it goes to press it.
 - **Never a session that only mentioned it.** The indicators are read from the last few rows, never from the transcript, so a session discussing `/rc active` is not mistaken for a connected one. A pane that has never been seen connected is only ever acted on when Claude Code itself prints that the link died.
 - **Never in a tight loop, and never twice at once.** One action per pane per 5 minutes, and a lock so that `cckeep watch` running alongside the scheduled job cannot interleave two passes into one garbled prompt.
+- **Never against a wall.** Replies like “Remote Control requires a claude.ai subscription” mean reconnecting is impossible here — an auth or plan problem the command cannot fix — so the pane is dropped until the link is seen healthy again. And for failure modes it cannot recognise, at most 3 re-arms per outage; after that it stops and waits to see the link healthy rather than retyping into your transcript forever.
 - **Re-checked at the last moment.** The decision is made from one capture, then re-verified after the wait — reconnected in between, dialog appeared, something typed? Nothing is sent, and the pane keeps the progress it had made rather than starting its wait over.
 
 `--dry-run` prints what it would do and sends nothing.
@@ -177,12 +178,13 @@ Defaults are tuned so you never notice it. Override in `~/.cckeep/config.json`, 
 - `cooldown` — seconds before the same pane may be acted on again
 - `stuckLimit` — checks in `reconnecting` before the bridge is treated as wedged
 - `missLimit` — checks with no indicator before re-arming a pane that had one
+- `maxRearms` — re-arms allowed per outage before it gives up until the link is seen healthy again
 - `settle` — milliseconds between the two captures of the idle check; raise it on a slow machine
 - `paneCommand` — foreground process name that marks a pane as Claude Code
 - `tmuxSocket` — socket name or path, if your tmux runs on something other than the default server (`tmux -L name` / `-S path`). Empty means the default
 - `tmuxBinary` — absolute path to tmux, if yours lives somewhere the usual lookup misses
 
-Every key has an env twin: `CCKEEP_INTERVAL`, `CCKEEP_COOLDOWN`, `CCKEEP_STUCK_LIMIT`, `CCKEEP_MISS_LIMIT`, `CCKEEP_SETTLE`, `CCKEEP_PANE_COMMAND`, `CCKEEP_TMUX_SOCKET`, `CCKEEP_TMUX`. Whatever is set when you run `cckeep enable` is written into the scheduled job, so a socket set only in your shell does not quietly go missing from the background run. `CCKEEP_HOME` moves state, config and log off `~/.cckeep`.
+Every key has an env twin: `CCKEEP_INTERVAL`, `CCKEEP_COOLDOWN`, `CCKEEP_STUCK_LIMIT`, `CCKEEP_MISS_LIMIT`, `CCKEEP_MAX_REARMS`, `CCKEEP_SETTLE`, `CCKEEP_PANE_COMMAND`, `CCKEEP_TMUX_SOCKET`, `CCKEEP_TMUX`. Whatever is set when you run `cckeep enable` is written into the scheduled job, so a socket set only in your shell does not quietly go missing from the background run. `CCKEEP_HOME` moves state, config and log off `~/.cckeep`.
 
 ## Scope
 
