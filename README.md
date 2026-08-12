@@ -91,27 +91,15 @@ This is the whole design problem. A watchdog that types into your terminal on a 
 
 A session also stops for a reason that has nothing to do with the connection: the quota window it was spending ran out. Claude Code prints a banner and stops, and it is still sitting there when you get back.
 
-Turn it on with `"limits": true`. cckeep then reads that banner the way it reads the connection indicator, and tells the two kinds of window apart:
-
-| Banner | Window | What cckeep does |
-|---|---|---|
-| `You've hit your Fable 5 limit` | that model only | switches to Opus, then picks the work back up |
-| `You've hit your Opus limit` | that model only | switches to Sonnet, then picks the work back up |
-| `You've hit your Sonnet limit` | that model only | waits — below Sonnet there is nothing worth handing a coding session |
-| `You've hit your session limit` | every model, 5 hours | waits, then resumes |
-| `You've hit your weekly limit` | every model, 7 days | waits, then resumes |
-
-Switching models only helps when the exhausted window belongs to one model. A session or weekly window covers all of them, so there the only remedy is time.
+Turn it on with `"limits": true`. cckeep then reads that banner the way it reads the connection indicator, waits, and types `limitResumePrompt` to pick the work back up. Every window is treated alike — session, weekly, or a single model's — because none of them can be hurried.
 
 That wait is a backoff — 15 minutes, doubling to a two-hour ceiling — and not a reading of the `· resets 3pm` on the banner. That timestamp is localised prose, and a parser that misreads it either sleeps hours too long or resumes straight back into the same wall. Backing off is self-correcting: a resume that is too early fails, the banner comes back, and the next wait is twice as long. After `limitMaxAttempts` it stops and leaves the pane to you.
 
 On the defaults that adds up to six attempts spread over 7h45m, then giving up at 9h45m — enough to cross a five-hour session window, and **not** enough to cross a weekly one. If you want a weekly limit waited out rather than handed back to you, raise `limitMaxAttempts` and `limitBackoff` to match; the arithmetic is yours to choose, because a watchdog that types into a pane once a day for a week is a different proposition from one that gives up before dinner.
 
-`limits` applies to every pane running Claude Code, including the ones the Remote Control half deliberately leaves alone (a session that never had the indicator is treated as "not ours to switch on" — quota recovery makes no such distinction).
-
 It is off by default because, unlike a re-arm, this types a sentence into your conversation. `limitResumePrompt` is that sentence — set it to whatever you want said.
 
-To return to your preferred model once its window refills, set `limitRestoreModel`. If a restore turns out to be early the banner simply returns, cckeep switches away again, and the next attempt waits longer.
+`limits` applies to every pane running Claude Code, including the ones the Remote Control half deliberately leaves alone (a session that never had the indicator is treated as "not ours to switch on" — quota recovery makes no such distinction).
 
 ## Commands
 
@@ -217,10 +205,8 @@ For [usage limits](#usage-limits-opt-in):
 - `limitBackoff` — seconds before the first resume attempt; doubles on each one that does not take
 - `limitMaxAttempts` — resume attempts per outage before the pane is left alone
 - `limitResumePrompt` — the sentence typed to pick the work back up
-- `limitRestoreModel` — model alias to return to once its window refills. Empty means stay where the fallback landed
-- `limitRestoreAfter` — seconds after a switch before trying to go back
 
-Every key has an env twin: `CCKEEP_INTERVAL`, `CCKEEP_COOLDOWN`, `CCKEEP_STUCK_LIMIT`, `CCKEEP_MISS_LIMIT`, `CCKEEP_MAX_REARMS`, `CCKEEP_SETTLE`, `CCKEEP_PANE_COMMAND`, `CCKEEP_TMUX_SOCKET`, `CCKEEP_TMUX`, `CCKEEP_LIMITS`, `CCKEEP_LIMIT_BACKOFF`, `CCKEEP_LIMIT_MAX_ATTEMPTS`, `CCKEEP_LIMIT_RESUME_PROMPT`, `CCKEEP_LIMIT_RESTORE_MODEL`, `CCKEEP_LIMIT_RESTORE_AFTER`. Whatever is set when you run `cckeep enable` is written into the scheduled job, so a socket set only in your shell does not quietly go missing from the background run. `CCKEEP_HOME` moves state, config and log off `~/.cckeep`.
+Every key has an env twin: `CCKEEP_INTERVAL`, `CCKEEP_COOLDOWN`, `CCKEEP_STUCK_LIMIT`, `CCKEEP_MISS_LIMIT`, `CCKEEP_MAX_REARMS`, `CCKEEP_SETTLE`, `CCKEEP_PANE_COMMAND`, `CCKEEP_TMUX_SOCKET`, `CCKEEP_TMUX`, `CCKEEP_LIMITS`, `CCKEEP_LIMIT_BACKOFF`, `CCKEEP_LIMIT_MAX_ATTEMPTS`, `CCKEEP_LIMIT_RESUME_PROMPT`. Whatever is set when you run `cckeep enable` is written into the scheduled job, so a socket set only in your shell does not quietly go missing from the background run. `CCKEEP_HOME` moves state, config and log off `~/.cckeep`.
 
 ## Scope
 

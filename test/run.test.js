@@ -289,32 +289,22 @@ test('each real send consumes one attempt from the breaker', async () => {
 
 // --- usage-limit recovery -------------------------------------------------
 // The rules themselves are covered in limits.test.js. What matters here is the
-// wiring: that the feature stays off until asked for, and that a quota action
-// goes through exactly the same "is this pane safe to type into" gauntlet as a
-// re-arm does.
+// wiring: that the feature stays off until asked for, and that the resume goes
+// through exactly the same "is this pane safe to type into" gauntlet a re-arm
+// does.
 
-const LIMIT_FABLE = "You've hit your Fable 5 limit · resets 3pm\n> ";
-const LIMIT_SESSION = "You've hit your session limit · resets 3pm\n> ";
+const LIMIT_SESSION = "You've hit your session limit \u00b7 resets 3pm\n> ";
 
 const limitConfig = (over = {}) => loadConfig({ settle: 1, keyDelay: 1, limits: true, ...over });
 
 test('a usage limit is ignored until limit recovery is turned on', async () => {
-  const tmux = fakeTmux({ screens: [LIMIT_FABLE] });
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
   const { acted } = await runPass({ tmux, config: config(), now: 1000 });
   assert.equal(acted, 0);
   assert.deepEqual(tmux.sent, []);
 });
 
-test("a model's own limit moves the pane to the next model", async () => {
-  const tmux = fakeTmux({ screens: [LIMIT_FABLE] });
-  const { results, acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
-  assert.equal(acted, 1);
-  assert.deepEqual(tmux.sent, ['/model opus', '<Enter>']);
-  assert.equal(results[0].action, 'switch-model');
-  assert.equal(results[0].model, 'opus');
-});
-
-test('an account-wide limit types nothing on the pass that finds it', async () => {
+test('the pass that finds a limit types nothing', async () => {
   const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
   const { results, acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
   assert.equal(acted, 0);
@@ -337,41 +327,54 @@ test('the work is picked back up once the wait has expired', async () => {
  * fire only on sessions that were *also* disconnected — which is to say, almost
  * never.
  */
-test('a healthy Remote Control link does not block a quota switch', async () => {
-  const tmux = fakeTmux({ screens: ["You've hit your Fable 5 limit · resets 3pm\n> \n  /rc active"] });
-  const { acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+test('a healthy Remote Control link does not block a quota resume', async () => {
+  const screen = "You've hit your session limit \u00b7 resets 3pm\n> \n  /rc active";
+  const cfg = limitConfig({ limitBackoff: 60 });
+  const tmux = fakeTmux({ screens: [screen] });
+  await runPass({ tmux, config: cfg, now: 1000 });
+  const { acted } = await runPass({ tmux, config: cfg, now: 1060 });
   assert.equal(acted, 1);
-  assert.deepEqual(tmux.sent, ['/model opus', '<Enter>']);
+  assert.deepEqual(tmux.sent, ['Continue where you left off.', '<Enter>']);
 });
 
 test('a busy pane is left alone, and the attempt is not spent', async () => {
-  const tmux = fakeTmux({ screens: [LIMIT_FABLE, `${LIMIT_FABLE}\nworking 1`, `${LIMIT_FABLE}\nworking 2`] });
-  const { results, acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+  const cfg = limitConfig({ limitBackoff: 60 });
+  await runPass({ tmux: fakeTmux({ screens: [LIMIT_SESSION] }), config: cfg, now: 1000 });
+
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION, `${LIMIT_SESSION}\nworking 1`, `${LIMIT_SESSION}\nworking 2`] });
+  const { results, acted } = await runPass({ tmux, config: cfg, now: 1060 });
   assert.equal(acted, 0);
   assert.deepEqual(tmux.sent, []);
   assert.equal(results[0].reason, 'busy');
   assert.equal(loadState()['%1'].limit.attempts, 0, 'a call-off must not burn an attempt');
-  assert.equal(loadState()['%1'].limit.resumePending, false);
 });
 
-test('a dialog on screen holds off a model switch', async () => {
-  const tmux = fakeTmux({ screens: ["You've hit your Fable 5 limit\nDo you want to proceed?\n❯ 1. Yes\n  2. No\n> "] });
-  const { acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+test('a dialog on screen holds off the resume', async () => {
+  const screen = `${LIMIT_SESSION}\nDo you want to proceed?\n\u276f 1. Yes\n  2. No\n> `;
+  const cfg = limitConfig({ limitBackoff: 60 });
+  await runPass({ tmux: fakeTmux({ screens: [screen] }), config: cfg, now: 1000 });
+  const tmux = fakeTmux({ screens: [screen] });
+  const { acted } = await runPass({ tmux, config: cfg, now: 1060 });
   assert.equal(acted, 0);
   assert.deepEqual(tmux.sent, []);
 });
 
 test('an unsent draft is never typed over', async () => {
-  const tmux = fakeTmux({ screens: ["You've hit your Fable 5 limit · resets 3pm\n> half a sentence"] });
-  const { acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+  const screen = "You've hit your session limit \u00b7 resets 3pm\n> half a sentence";
+  const cfg = limitConfig({ limitBackoff: 60 });
+  await runPass({ tmux: fakeTmux({ screens: [screen] }), config: cfg, now: 1000 });
+  const tmux = fakeTmux({ screens: [screen] });
+  const { acted } = await runPass({ tmux, config: cfg, now: 1060 });
   assert.equal(acted, 0);
   assert.deepEqual(tmux.sent, []);
 });
 
-test('--dry-run reports the switch without typing it', async () => {
-  const tmux = fakeTmux({ screens: [LIMIT_FABLE] });
-  const { results } = await runPass({ tmux, config: limitConfig(), dryRun: true, now: 1000 });
-  assert.equal(results[0].action, 'would-switch-model');
+test('--dry-run reports the resume without typing it', async () => {
+  const cfg = limitConfig({ limitBackoff: 60 });
+  await runPass({ tmux: fakeTmux({ screens: [LIMIT_SESSION] }), config: cfg, now: 1000 });
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
+  const { results } = await runPass({ tmux, config: cfg, dryRun: true, now: 1060 });
+  assert.equal(results[0].action, 'would-resume');
   assert.deepEqual(tmux.sent, []);
 });
 
@@ -391,57 +394,12 @@ test('an empty resume prompt submits nothing, and does not loop forever', async 
   assert.equal(results[0].reason, 'no-prompt');
   assert.equal(loadState()['%1'].limit.attempts, 1, 'the refusal must consume an attempt');
 
-  // Keep going: the breaker has to arrive rather than the pane retrying for ever.
   let last;
   for (let i = 2; i < 12; i++) {
     last = await runPass({ tmux, config: cfg, now: 1060 + i * 100000 });
   }
   assert.deepEqual(tmux.sent, []);
   assert.equal(last.results[0].reason, 'limit-gave-up');
-});
-
-/**
- * The regression behind the two-pass design. The banner is the failed turn's own
- * output, so it is still in the transcript after `/model` is sent — waiting for
- * a clear screen before resuming meant never resuming, and re-sending `/model`
- * once per backoff until the breaker stopped it.
- */
-test('the resume still fires when the banner is left on screen after the switch', async () => {
-  const afterSwitch = [
-    "You've hit your Fable 5 limit · resets 3pm",
-    '> /model opus',
-    '  ⎿  Set model to opus',
-    '> ',
-  ].join('\n');
-
-  const tmux = fakeTmux({ screens: [LIMIT_FABLE] });
-  const cfg = limitConfig({ limitResumePrompt: 'Pick it back up.' });
-  const first = await runPass({ tmux, config: cfg, now: 1000 });
-  assert.equal(first.results[0].action, 'switch-model');
-
-  const tmux2 = fakeTmux({ screens: [afterSwitch] });
-  const second = await runPass({ tmux: tmux2, config: cfg, now: 1040 });
-  assert.equal(second.results[0].action, 'resume');
-  assert.deepEqual(tmux2.sent, ['Pick it back up.', '<Enter>'], 'not a second /model');
-  // The mechanism matters, not just the outcome: this has to be the switch's own
-  // follow-up, taken on the settle. Reaching a resume by falling through to the
-  // account-wide wait branch instead would spend a breaker attempt every time
-  // and put the prompt a full backoff late.
-  assert.equal(second.results[0].reason, 'switched');
-  assert.equal(loadState()['%1'].limit.attempts, 1, 'the follow-up is not a new attempt');
-});
-
-test('the preferred model is typed back in once its window has had time to refill', async () => {
-  const cfg = limitConfig({ limitRestoreModel: 'fable', limitRestoreAfter: 600, limitResumePrompt: 'go on' });
-  const tmux = fakeTmux({ screens: [LIMIT_FABLE] });
-  await runPass({ tmux, config: cfg, now: 1000 });          // switch
-  await runPass({ tmux: fakeTmux({ screens: [CONNECTED] }), config: cfg, now: 1040 }); // resume
-
-  const tmux3 = fakeTmux({ screens: [CONNECTED] });
-  const { results, acted } = await runPass({ tmux: tmux3, config: cfg, now: 1000 + 600 + 10 });
-  assert.equal(acted, 1);
-  assert.equal(results[0].action, 'restore-model');
-  assert.deepEqual(tmux3.sent, ['/model fable', '<Enter>'], 'the alias must survive the hand-off');
 });
 
 process.on('exit', () => rmSync(HOME, { recursive: true, force: true }));

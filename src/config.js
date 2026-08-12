@@ -25,13 +25,13 @@ export const BASE = {
 
 const NUMERIC = new Set([
   'stuckLimit', 'missLimit', 'cooldown', 'interval', 'settle', 'keyDelay', 'maxRearms',
-  'limitBackoff', 'limitMaxAttempts', 'limitRestoreAfter',
+  'limitBackoff', 'limitMaxAttempts',
 ]);
 
 /** launchd and systemd both want whole seconds, and a fraction breaks the plist. */
 const INTEGER = new Set([
   'interval', 'stuckLimit', 'missLimit', 'maxRearms',
-  'limitBackoff', 'limitMaxAttempts', 'limitRestoreAfter',
+  'limitBackoff', 'limitMaxAttempts',
 ]);
 
 /**
@@ -58,8 +58,6 @@ const ENV = {
   CCKEEP_LIMIT_BACKOFF: 'limitBackoff',
   CCKEEP_LIMIT_MAX_ATTEMPTS: 'limitMaxAttempts',
   CCKEEP_LIMIT_RESUME_PROMPT: 'limitResumePrompt',
-  CCKEEP_LIMIT_RESTORE_MODEL: 'limitRestoreModel',
-  CCKEEP_LIMIT_RESTORE_AFTER: 'limitRestoreAfter',
 };
 
 export function configPath() {
@@ -98,13 +96,6 @@ export function loadConfig(overrides = {}) {
     if (!String(merged.limitResumePrompt ?? '').trim()) {
       throw new Error('config: limitResumePrompt must not be empty when limits is on');
     }
-    // Typed straight after `/model`, so anything with whitespace or a slash in
-    // it would open the model picker and leave the pane sitting on it.
-    const model = String(merged.limitRestoreModel ?? '').trim();
-    if (model && !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(model)) {
-      throw new Error(`config: limitRestoreModel must be a model name or alias, not "${model}"`);
-    }
-    merged.limitRestoreModel = model;
   }
   for (const key of NUMERIC) {
     const value = Number(merged[key]);

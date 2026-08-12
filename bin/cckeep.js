@@ -40,9 +40,9 @@ cckeep watches tmux panes running Claude Code and types /remote-control
 into the ones that went dead — never into one that is busy or showing a dialog.
 
 Usage-limit recovery is a separate, opt-in job: set "limits": true in
-~/.cckeep/config.json and cckeep also moves a pane to another model when that
-model's weekly window runs out, and picks the work back up once an
-account-wide window refills. Off by default, because it types prompts.
+~/.cckeep/config.json and cckeep also picks a session back up once the
+quota window that stopped it has refilled. Off by default, because it
+types a prompt into a real conversation.
 `;
 
 function parseArgs(argv) {
@@ -125,11 +125,7 @@ function describe(result, t) {
   if (result.action === 'confirm-panel') return t.confirmed;
   if (result.action === 'would-rearm') return `${t.wouldRearm} (${result.reason})`;
   if (result.action === 'would-confirm-panel') return t.wouldConfirm;
-  if (result.action === 'switch-model') return t.switched(result.model);
-  if (result.action === 'restore-model') return t.restored(result.model);
   if (result.action === 'resume') return t.resumed;
-  if (result.action === 'would-switch-model') return t.wouldSwitch(result.model);
-  if (result.action === 'would-restore-model') return t.wouldRestore(result.model);
   if (result.action === 'would-resume') return t.wouldResume;
   return t[REASON_KEY[result.reason]] ?? result.reason;
 }

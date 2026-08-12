@@ -7,7 +7,7 @@ import { loadState, saveState, forPane, forLimit, prune, appendLog, acquireLock,
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Actions that come from the quota rules rather than the Remote Control ones. */
-const LIMIT_ACTIONS = new Set(['switch-model', 'restore-model', 'resume']);
+const LIMIT_ACTIONS = new Set(['resume']);
 
 /** Reasons worth showing even though nothing was done, because they explain a long silence. */
 const LIMIT_REASONS = new Set(['limit-wait', 'limit-gave-up']);
@@ -75,7 +75,6 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
 
     let action = rcAction;
     let reason = rcReason;
-    let model = null;
 
     // Quota is only consulted when the link itself needs nothing. Both halves
     // type into the same pane, and letting them act in the same pass would
@@ -88,7 +87,6 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
       if (lim.action !== 'none') {
         action = lim.action;
         reason = lim.reason;
-        model = lim.model ?? null;
       } else if (LIMIT_REASONS.has(lim.reason)) {
         // "connected" is true and useless while a pane sits blocked on quota for
         // an hour; say what it is actually waiting for.
@@ -97,7 +95,6 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
     }
 
     const result = { pane: pane.label, id: pane.id, action, reason, signals: readScreen(screen) };
-    if (model) result.model = model;
 
     if (action === 'none') {
       results.push(result);
@@ -173,7 +170,7 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
       tmux.sendEnter(pane.id);
       appendLog(`${pane.label}: closing wedged bridge via panel`);
     } else if (LIMIT_ACTIONS.has(action)) {
-      const text = action === 'resume' ? String(config.limitResumePrompt ?? '').trim() : `/model ${model}`;
+      const text = String(config.limitResumePrompt ?? '').trim();
       // loadConfig refuses an empty prompt when limits are on, so this only
       // catches a caller that assembled its own config. Deliberately not routed
       // through abort(): that rewinds the quota counters, and a condition that
@@ -187,7 +184,7 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
       tmux.sendText(pane.id, text);
       await sleep(config.keyDelay ?? 1000);
       tmux.sendEnter(pane.id);
-      appendLog(`${pane.label}: ${action}${model ? ` -> ${model}` : ''} (${reason})`);
+      appendLog(`${pane.label}: resume (${reason})`);
     } else {
       tmux.sendText(pane.id, '/remote-control');
       await sleep(config.keyDelay ?? 1000);

@@ -89,27 +89,15 @@ asdf reshim nodejs # asdf
 
 セッションは接続とは無関係な理由でも止まります。使っていた枠の上限に達した場合です。Claude Code はバナーを出して停止し、戻ってきた時もそのまま止まっています。
 
-`"limits": true` で有効になります。接続表示と同じ要領でバナーを読み、枠の種類を見分けます。
-
-| バナー | 枠の範囲 | cckeep の動作 |
-|---|---|---|
-| `You've hit your Fable 5 limit` | そのモデルのみ | Opus に切り替えて作業を再開させる |
-| `You've hit your Opus limit` | そのモデルのみ | Sonnet に切り替えて作業を再開させる |
-| `You've hit your Sonnet limit` | そのモデルのみ | 待つ(Sonnet より下にコーディングを任せる先がないため) |
-| `You've hit your session limit` | 全モデル共通・5時間 | 待ってから再開させる |
-| `You've hit your weekly limit` | 全モデル共通・7日 | 待ってから再開させる |
-
-モデルの切り替えが効くのは、枯れた枠が特定のモデルのものである場合だけです。セッション枠・週間枠は全モデルをまとめて覆うので、そこでは時間が経つのを待つ以外にありません。
+`"limits": true` で有効になります。接続表示と同じ要領でバナーを読み、解除を待ってから `limitResumePrompt` を送って作業を再開させます。セッション枠・週間枠・特定モデルの枠のいずれであっても扱いは同じです。どれも待つ以外に短くする手段がないためです。
 
 その待ち時間はバックオフ(15分から始めて倍々、上限2時間)であって、バナーの `· resets 3pm` を読んだ結果ではありません。あの時刻表示は人間向けに整形された文字列で、読み違える実装は「何時間も長く眠る」か「同じ壁に突っ込み直す」かのどちらかになります。バックオフなら自己補正が効きます。早すぎた再開は失敗し、バナーがまた出て、次の待ち時間が倍になるだけです。`limitMaxAttempts` を超えたら打ち切って、あとは手動に委ねます。
 
 既定値では、7時間45分かけて6回試み、9時間45分で打ち切ります。5時間のセッション枠は跨げますが、**週間枠は跨げません**。週間枠も待たせたい場合は `limitMaxAttempts` と `limitBackoff` を引き上げてください。1週間にわたって1日1回ペインに入力し続けるツールと、夕食前に諦めるツールは別物なので、その匙加減は設定する側に委ねています。
 
-`limits` の対象は Claude Code が動いている**すべてのペイン**です。Remote Control 側が意図的に手を出さないペイン(接続表示を一度も出していないセッションは「こちらから勝手に有効化するものではない」と判断される)も含みます。上限からの復旧はその区別をしません。
-
 既定で無効なのは、繋ぎ直しと違ってこれが**会話に1文を打ち込む**動作だからです。その1文は `limitResumePrompt` なので、好きな文面にしてください。
 
-枠が回復したら元のモデルに戻したい場合は `limitRestoreModel` を設定します。戻すのが早すぎた場合はバナーが再び出るだけで、cckeep はまた切り替え、次はもっと長く待ちます。
+`limits` の対象は Claude Code が動いている**すべてのペイン**です。Remote Control 側が意図的に手を出さないペイン(接続表示を一度も出していないセッションは「こちらから勝手に有効化するものではない」と判断される)も含みます。上限からの復旧はその区別をしません。
 
 ## コマンド
 
@@ -213,10 +201,8 @@ Ctrl+B の衝突については何もしなくて構いません。Claude Code �
 - `limitBackoff`: 最初の再開までの秒数。うまくいかないたびに倍になります
 - `limitMaxAttempts`: 1回の上限につき何回まで再開を試みるか
 - `limitResumePrompt`: 作業を再開させるために打ち込む文面
-- `limitRestoreModel`: 枠が回復したら戻すモデルのエイリアス。空なら切り替えた先に留まります
-- `limitRestoreAfter`: 切り替えてから戻すまでの秒数
 
-どの項目にも環境変数版があります。`CCKEEP_INTERVAL`、`CCKEEP_COOLDOWN`、`CCKEEP_STUCK_LIMIT`、`CCKEEP_MISS_LIMIT`、`CCKEEP_MAX_REARMS`、`CCKEEP_SETTLE`、`CCKEEP_PANE_COMMAND`、`CCKEEP_TMUX_SOCKET`、`CCKEEP_TMUX`、`CCKEEP_LIMITS`、`CCKEEP_LIMIT_BACKOFF`、`CCKEEP_LIMIT_MAX_ATTEMPTS`、`CCKEEP_LIMIT_RESUME_PROMPT`、`CCKEEP_LIMIT_RESTORE_MODEL`、`CCKEEP_LIMIT_RESTORE_AFTER` です。`cckeep enable` を実行した時点で設定されている値はスケジュールされたジョブにも書き込まれるので、シェルでだけ設定したソケットがバックグラウンド実行から抜け落ちることはありません。`CCKEEP_HOME` を指定すれば、状態・設定・ログの置き場所を `~/.cckeep` 以外に移せます。
+どの項目にも環境変数版があります。`CCKEEP_INTERVAL`、`CCKEEP_COOLDOWN`、`CCKEEP_STUCK_LIMIT`、`CCKEEP_MISS_LIMIT`、`CCKEEP_MAX_REARMS`、`CCKEEP_SETTLE`、`CCKEEP_PANE_COMMAND`、`CCKEEP_TMUX_SOCKET`、`CCKEEP_TMUX`、`CCKEEP_LIMITS`、`CCKEEP_LIMIT_BACKOFF`、`CCKEEP_LIMIT_MAX_ATTEMPTS`、`CCKEEP_LIMIT_RESUME_PROMPT` です。`cckeep enable` を実行した時点で設定されている値はスケジュールされたジョブにも書き込まれるので、シェルでだけ設定したソケットがバックグラウンド実行から抜け落ちることはありません。`CCKEEP_HOME` を指定すれば、状態・設定・ログの置き場所を `~/.cckeep` 以外に移せます。
 
 ## 適用範囲
 
