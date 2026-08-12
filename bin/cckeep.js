@@ -38,6 +38,11 @@ OPTIONS
 Remote Control retries 5 times over ~31 seconds and then gives up for good.
 cckeep watches tmux panes running Claude Code and types /remote-control
 into the ones that went dead — never into one that is busy or showing a dialog.
+
+Usage-limit recovery is a separate, opt-in job: set "limits": true in
+~/.cckeep/config.json and cckeep also moves a pane to another model when that
+model's weekly window runs out, and picks the work back up once an
+account-wide window refills. Off by default, because it types prompts.
 `;
 
 function parseArgs(argv) {
@@ -110,6 +115,9 @@ const REASON_KEY = {
   unavailable: 'unavailable',
   'gave-up': 'gaveUp',
   recovered: 'recovered',
+  'limit-wait': 'limitWait',
+  'limit-gave-up': 'limitGaveUp',
+  'no-prompt': 'noPrompt',
 };
 
 function describe(result, t) {
@@ -117,6 +125,12 @@ function describe(result, t) {
   if (result.action === 'confirm-panel') return t.confirmed;
   if (result.action === 'would-rearm') return `${t.wouldRearm} (${result.reason})`;
   if (result.action === 'would-confirm-panel') return t.wouldConfirm;
+  if (result.action === 'switch-model') return t.switched(result.model);
+  if (result.action === 'restore-model') return t.restored(result.model);
+  if (result.action === 'resume') return t.resumed;
+  if (result.action === 'would-switch-model') return t.wouldSwitch(result.model);
+  if (result.action === 'would-restore-model') return t.wouldRestore(result.model);
+  if (result.action === 'would-resume') return t.wouldResume;
   return t[REASON_KEY[result.reason]] ?? result.reason;
 }
 
@@ -241,6 +255,9 @@ async function main() {
         { key: 'tmuxServer', label: 'tmux server', value: hasServer },
         { key: 'tmuxSocket', label: 'tmux socket', value: config.tmuxSocket || null },
         { key: 'claudePanes', label: 'claude panes', value: claudePanes.length },
+        // A plain string, not a boolean: the boolean renderer prints "missing"
+        // for false, which reads as breakage rather than as a setting left off.
+        { key: 'limitRecovery', label: 'limit recovery', value: config.limits ? 'on' : 'off' },
         { key: 'scheduler', label: 'scheduler', value: scheduler.isInstalled() },
         { key: 'scheduledCommand', label: t.scheduledPath, value: cli },
         { key: 'scheduledCommandExists', label: null, value: cli ? existsSync(cli) : null },

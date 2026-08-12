@@ -2,9 +2,11 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homeDir } from './state.js';
 import { DEFAULTS } from './detect.js';
+import { LIMIT_DEFAULTS } from './limits.js';
 
 export const BASE = {
   ...DEFAULTS,
+  ...LIMIT_DEFAULTS,
   /** Seconds between passes in watch mode, and what `enable` schedules. */
   interval: 15,
   /** Milliseconds between idle-check captures. Deliberately not a round
@@ -21,10 +23,25 @@ export const BASE = {
   tmuxBinary: '',
 };
 
-const NUMERIC = new Set(['stuckLimit', 'missLimit', 'cooldown', 'interval', 'settle', 'keyDelay', 'maxRearms']);
+const NUMERIC = new Set([
+  'stuckLimit', 'missLimit', 'cooldown', 'interval', 'settle', 'keyDelay', 'maxRearms',
+  'limitBackoff', 'limitMaxAttempts', 'limitRestoreAfter',
+]);
 
 /** launchd and systemd both want whole seconds, and a fraction breaks the plist. */
-const INTEGER = new Set(['interval', 'stuckLimit', 'missLimit', 'maxRearms']);
+const INTEGER = new Set([
+  'interval', 'stuckLimit', 'missLimit', 'maxRearms',
+  'limitBackoff', 'limitMaxAttempts', 'limitRestoreAfter',
+]);
+
+/**
+ * Settings that gate an action rather than tune one.
+ *
+ * Coerced from the string an environment variable always is, because
+ * `CCKEEP_LIMITS=false` is the obvious way to turn something off and the string
+ * "false" is truthy — which would enable the very thing the user just disabled.
+ */
+const BOOLEAN = new Set(['limits']);
 
 const ENV = {
   CCKEEP_INTERVAL: 'interval',
@@ -37,6 +54,12 @@ const ENV = {
   CCKEEP_PANE_COMMAND: 'paneCommand',
   CCKEEP_TMUX_SOCKET: 'tmuxSocket',
   CCKEEP_TMUX: 'tmuxBinary',
+  CCKEEP_LIMITS: 'limits',
+  CCKEEP_LIMIT_BACKOFF: 'limitBackoff',
+  CCKEEP_LIMIT_MAX_ATTEMPTS: 'limitMaxAttempts',
+  CCKEEP_LIMIT_RESUME_PROMPT: 'limitResumePrompt',
+  CCKEEP_LIMIT_RESTORE_MODEL: 'limitRestoreModel',
+  CCKEEP_LIMIT_RESTORE_AFTER: 'limitRestoreAfter',
 };
 
 export function configPath() {
@@ -64,6 +87,10 @@ export function loadConfig(overrides = {}) {
 
   const merged = { ...BASE, ...fromFile, ...fromEnv, ...overrides };
   if (Number(merged.interval) < 1) throw new Error('config: interval must be at least 1 second');
+  for (const key of BOOLEAN) {
+    const value = merged[key];
+    merged[key] = typeof value === 'string' ? !/^(0|false|no|off|)$/i.test(value.trim()) : Boolean(value);
+  }
   for (const key of NUMERIC) {
     const value = Number(merged[key]);
     if (!Number.isFinite(value) || value < 0) throw new Error(`config: ${key} must be a non-negative number`);

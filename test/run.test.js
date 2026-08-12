@@ -287,4 +287,102 @@ test('each real send consumes one attempt from the breaker', async () => {
   }
 });
 
+// --- usage-limit recovery -------------------------------------------------
+// The rules themselves are covered in limits.test.js. What matters here is the
+// wiring: that the feature stays off until asked for, and that a quota action
+// goes through exactly the same "is this pane safe to type into" gauntlet as a
+// re-arm does.
+
+const LIMIT_FABLE = "You've hit your Fable 5 limit · resets 3pm\n> ";
+const LIMIT_SESSION = "You've hit your session limit · resets 3pm\n> ";
+
+const limitConfig = (over = {}) => loadConfig({ settle: 1, keyDelay: 1, limits: true, ...over });
+
+test('a usage limit is ignored until limit recovery is turned on', async () => {
+  const tmux = fakeTmux({ screens: [LIMIT_FABLE] });
+  const { acted } = await runPass({ tmux, config: config(), now: 1000 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+});
+
+test("a model's own limit moves the pane to the next model", async () => {
+  const tmux = fakeTmux({ screens: [LIMIT_FABLE] });
+  const { results, acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+  assert.equal(acted, 1);
+  assert.deepEqual(tmux.sent, ['/model opus', '<Enter>']);
+  assert.equal(results[0].action, 'switch-model');
+  assert.equal(results[0].model, 'opus');
+});
+
+test('an account-wide limit types nothing on the pass that finds it', async () => {
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
+  const { results, acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+  assert.equal(results[0].reason, 'limit-wait');
+});
+
+test('the work is picked back up once the wait has expired', async () => {
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
+  const cfg = limitConfig({ limitBackoff: 60, limitResumePrompt: 'Pick it back up.' });
+  await runPass({ tmux, config: cfg, now: 1000 });
+  const { acted } = await runPass({ tmux, config: cfg, now: 1060 });
+  assert.equal(acted, 1);
+  assert.deepEqual(tmux.sent, ['Pick it back up.', '<Enter>']);
+});
+
+/**
+ * The link being healthy says nothing about quota, and the re-arm path refuses
+ * to act on a connected pane. Sharing that condition would have made the resume
+ * fire only on sessions that were *also* disconnected — which is to say, almost
+ * never.
+ */
+test('a healthy Remote Control link does not block a quota switch', async () => {
+  const tmux = fakeTmux({ screens: ["You've hit your Fable 5 limit · resets 3pm\n> \n  /rc active"] });
+  const { acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+  assert.equal(acted, 1);
+  assert.deepEqual(tmux.sent, ['/model opus', '<Enter>']);
+});
+
+test('a busy pane is left alone, and the attempt is not spent', async () => {
+  const tmux = fakeTmux({ screens: [LIMIT_FABLE, `${LIMIT_FABLE}\nworking 1`, `${LIMIT_FABLE}\nworking 2`] });
+  const { results, acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+  assert.equal(results[0].reason, 'busy');
+  assert.equal(loadState()['%1'].limit.attempts, 0, 'a call-off must not burn an attempt');
+  assert.equal(loadState()['%1'].limit.resumePending, false);
+});
+
+test('a dialog on screen holds off a model switch', async () => {
+  const tmux = fakeTmux({ screens: ["You've hit your Fable 5 limit\nDo you want to proceed?\n❯ 1. Yes\n  2. No\n> "] });
+  const { acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+});
+
+test('an unsent draft is never typed over', async () => {
+  const tmux = fakeTmux({ screens: ["You've hit your Fable 5 limit · resets 3pm\n> half a sentence"] });
+  const { acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+});
+
+test('--dry-run reports the switch without typing it', async () => {
+  const tmux = fakeTmux({ screens: [LIMIT_FABLE] });
+  const { results } = await runPass({ tmux, config: limitConfig(), dryRun: true, now: 1000 });
+  assert.equal(results[0].action, 'would-switch-model');
+  assert.deepEqual(tmux.sent, []);
+});
+
+test('an empty resume prompt submits nothing', async () => {
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
+  const cfg = limitConfig({ limitBackoff: 60, limitResumePrompt: '   ' });
+  await runPass({ tmux, config: cfg, now: 1000 });
+  const { results, acted } = await runPass({ tmux, config: cfg, now: 1060 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+  assert.equal(results[0].reason, 'no-prompt');
+});
+
 process.on('exit', () => rmSync(HOME, { recursive: true, force: true }));

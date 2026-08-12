@@ -162,16 +162,26 @@ function readIndicator(lines, window = INDICATOR_LINES) {
   return null;
 }
 
-export function readScreen(screen, footerLines = FOOTER_LINES) {
-  // `capture-pane` returns the whole pane, blank rows included, so a UI that
-  // does not fill the pane leaves the bottom padded with empty lines. Scanning
-  // the last N lines would then scan nothing but padding and see no indicator
-  // at all — a silent failure. Measure the footer from the last row that has
-  // something on it.
+/**
+ * A pane's rows with the bottom padding removed.
+ *
+ * `capture-pane` returns the whole pane, blank rows included, so a UI that does
+ * not fill the pane leaves the bottom padded with empty lines. Scanning the last
+ * N lines would then scan nothing but padding and see no indicator at all — a
+ * silent failure. Measure the footer from the last row that has something on it.
+ *
+ * Exported because limits.js reads its own banner out of the same footer, and
+ * two copies of this trimming would be two chances to lose the fix.
+ */
+export function trimmedLines(screen) {
   const all = String(screen).split('\n');
   let end = all.length;
   while (end > 0 && all[end - 1].trim() === '') end -= 1;
-  const lines = all.slice(0, end);
+  return all.slice(0, end);
+}
+
+export function readScreen(screen, footerLines = FOOTER_LINES) {
+  const lines = trimmedLines(screen);
 
   const footer = lines.slice(Math.max(0, lines.length - footerLines)).join('\n');
   const modalWindow = lines.slice(Math.max(0, lines.length - MODAL_LINES)).join('\n');

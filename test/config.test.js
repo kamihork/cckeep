@@ -50,4 +50,28 @@ test('configPath sits under CCKEEP_HOME', () => {
   assert.equal(configPath(), CONFIG);
 });
 
+test('limit recovery is off unless it is asked for', () => {
+  assert.equal(loadConfig().limits, false);
+  writeFileSync(CONFIG, JSON.stringify({ limits: true }));
+  assert.equal(loadConfig().limits, true);
+});
+
+/**
+ * An environment variable is always a string, and "false" is a truthy one. Left
+ * uncoerced, the obvious way to turn the feature off would turn it on — into a
+ * feature whose whole job is typing into people's terminals.
+ */
+test('CCKEEP_LIMITS=false turns it off rather than on', () => {
+  writeFileSync(CONFIG, JSON.stringify({ limits: true }));
+  for (const off of ['false', '0', 'no', 'off', 'FALSE']) {
+    process.env.CCKEEP_LIMITS = off;
+    assert.equal(loadConfig().limits, false, `"${off}" must read as off`);
+  }
+  for (const on of ['true', '1', 'yes']) {
+    process.env.CCKEEP_LIMITS = on;
+    assert.equal(loadConfig().limits, true, `"${on}" must read as on`);
+  }
+  delete process.env.CCKEEP_LIMITS;
+});
+
 process.on('exit', () => rmSync(HOME, { recursive: true, force: true }));

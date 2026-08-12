@@ -1,6 +1,6 @@
 {
   "name": "cckeep",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Keeps Claude Code Remote Control from silently going dead. Re-arms the sessions its 31-second retry budget gives up on — local, tmux-native, zero dependencies.",
   "type": "module",
   "bin": {
