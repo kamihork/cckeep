@@ -105,6 +105,10 @@ Switching models only helps when the exhausted window belongs to one model. A se
 
 That wait is a backoff — 15 minutes, doubling to a two-hour ceiling — and not a reading of the `· resets 3pm` on the banner. That timestamp is localised prose, and a parser that misreads it either sleeps hours too long or resumes straight back into the same wall. Backing off is self-correcting: a resume that is too early fails, the banner comes back, and the next wait is twice as long. After `limitMaxAttempts` it stops and leaves the pane to you.
 
+On the defaults that adds up to six attempts spread over 7h45m, then giving up at 9h45m — enough to cross a five-hour session window, and **not** enough to cross a weekly one. If you want a weekly limit waited out rather than handed back to you, raise `limitMaxAttempts` and `limitBackoff` to match; the arithmetic is yours to choose, because a watchdog that types into a pane once a day for a week is a different proposition from one that gives up before dinner.
+
+`limits` applies to every pane running Claude Code, including the ones the Remote Control half deliberately leaves alone (a session that never had the indicator is treated as "not ours to switch on" — quota recovery makes no such distinction).
+
 It is off by default because, unlike a re-arm, this types a sentence into your conversation. `limitResumePrompt` is that sentence — set it to whatever you want said.
 
 To return to your preferred model once its window refills, set `limitRestoreModel`. If a restore turns out to be early the banner simply returns, cckeep switches away again, and the next attempt waits longer.

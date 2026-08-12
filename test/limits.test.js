@@ -121,6 +121,44 @@ test('the breaker stops the retries rather than typing on a timer forever', () =
   assert.equal(resumes, LIMIT_DEFAULTS.limitMaxAttempts);
 });
 
+/**
+ * The banner is the failed turn's own output, so it is still in the transcript
+ * after the switch is sent. The follow-up therefore cannot be conditioned on the
+ * screen going clear — it has to run off the pending flag and the clock.
+ */
+test('the resume follows a switch even while the banner is still on screen', () => {
+  const switched = decideLimit({ screen: FABLE, state: emptyLimitState(), now: 1000, config: cfg() });
+  const stillShowing = `${FABLE}\n  ⎿  Set model to opus\n> `;
+
+  const next = decideLimit({ screen: stillShowing, state: switched.state, now: 1040, config: cfg() });
+  assert.equal(next.action, 'resume');
+  assert.equal(next.reason, 'switched');
+  assert.equal(next.state.attempts, 1, 'the follow-up must not spend an attempt');
+});
+
+test('one switch per banner: a lingering banner does not walk down the model list', () => {
+  const switched = decideLimit({ screen: FABLE, state: emptyLimitState(), now: 1000, config: cfg() });
+  // Past the resume window, so the pending follow-up is dropped and the banner
+  // is judged on its own — the case that used to re-send /model on every wait.
+  const later = decideLimit({ screen: FABLE, state: switched.state, now: 1000 + 99999, config: cfg() });
+  assert.notEqual(later.action, 'switch-model');
+});
+
+test('when two banners share the footer the newer one is the one answered', () => {
+  const both = ["You've hit your Fable 5 limit · resets 3pm", '> /model opus', "You've hit your Opus limit · resets 5pm", '> '].join('\n');
+  assert.equal(readLimit(both), 'Opus limit');
+});
+
+test('a restore whose due time passed while cckeep was down is dropped, not fired', () => {
+  const conf = cfg({ limitRestoreModel: 'fable', limitRestoreAfter: 600 });
+  const switched = decideLimit({ screen: FABLE, state: emptyLimitState(), now: 1000, config: conf });
+  const state = { ...switched.state, resumePending: false };
+
+  const wayLater = decideLimit({ screen: CLEAR, state, now: state.restoreBy + 1, config: conf });
+  assert.equal(wayLater.action, 'none');
+  assert.equal(wayLater.state.restoreTo, null, 'and it is cleared rather than retried for ever');
+});
+
 test('the pass after a switch resumes the work, and only once', () => {
   const switched = decideLimit({ screen: FABLE, state: emptyLimitState(), now: 1000, config: cfg() });
   const resumed = decideLimit({ screen: CLEAR, state: switched.state, now: 1100, config: cfg() });
@@ -167,8 +205,10 @@ test('the preferred model is restored once its window has had time to refill', (
 
 test('restoring too early makes the next restore wait longer', () => {
   const conf = cfg({ limitRestoreModel: 'fable', limitRestoreAfter: 600 });
-  const first = decideLimit({ screen: FABLE, state: emptyLimitState(), now: 0, config: conf });
-  const firstDelay = first.state.restoreAt;
+  // Delays, not absolute stamps: comparing restoreAt directly only happens to
+  // work while `now` is 0, and stops meaning anything the moment it is not.
+  const first = decideLimit({ screen: FABLE, state: emptyLimitState(), now: 500, config: conf });
+  const firstDelay = first.state.restoreAt - 500;
 
   // The restore actually fired...
   const restored = decideLimit({
@@ -180,8 +220,36 @@ test('restoring too early makes the next restore wait longer', () => {
   assert.equal(restored.action, 'restore-model');
 
   // ...the window was still full, and the same banner came straight back.
-  const relapse = decideLimit({ screen: FABLE, state: restored.state, now: 0, config: conf });
-  assert.ok(relapse.state.restoreAt > firstDelay, `${relapse.state.restoreAt} > ${firstDelay}`);
+  const at = restored.state.restoredAt + 10;
+  const relapse = decideLimit({ screen: FABLE, state: restored.state, now: at, config: conf });
+  const nextDelay = relapse.state.restoreAt - at;
+  assert.ok(nextDelay > firstDelay, `${nextDelay} > ${firstDelay}`);
+});
+
+/**
+ * The escalation has to decay, or one early restore penalises every outage for
+ * the rest of the pane's life: `restoreFails` only ever grew, and a perfectly
+ * ordinary limit days later inherited the maximum delay.
+ */
+test('a restore that held is not counted against the next outage', () => {
+  const conf = cfg({ limitRestoreModel: 'fable', limitRestoreAfter: 600 });
+  const first = decideLimit({ screen: FABLE, state: emptyLimitState(), now: 500, config: conf });
+  const firstDelay = first.state.restoreAt - 500;
+
+  const restored = decideLimit({
+    screen: CLEAR,
+    state: { ...first.state, resumePending: false },
+    now: first.state.restoreAt,
+    config: conf,
+  });
+
+  // A long clean stretch, then an unrelated new outage.
+  const settled = decideLimit({ screen: CLEAR, state: restored.state, now: restored.state.restoredAt + 99999, config: conf });
+  assert.equal(settled.state.restoreFails, 0);
+
+  const at = restored.state.restoredAt + 100000;
+  const fresh = decideLimit({ screen: FABLE, state: settled.state, now: at, config: conf });
+  assert.equal(fresh.state.restoreAt - at, firstDelay, 'back to the configured delay');
 });
 
 test('no restore model configured means the pane simply stays where it landed', () => {

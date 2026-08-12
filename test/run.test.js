@@ -375,14 +375,73 @@ test('--dry-run reports the switch without typing it', async () => {
   assert.deepEqual(tmux.sent, []);
 });
 
-test('an empty resume prompt submits nothing', async () => {
+/**
+ * loadConfig rejects an empty prompt outright, so this is a caller that built a
+ * config by hand. What matters is that the refusal spends the breaker instead of
+ * rewinding it: routed through abort(), a condition that never clears would loop
+ * every 15 seconds forever rather than giving up.
+ */
+test('an empty resume prompt submits nothing, and does not loop forever', async () => {
+  const cfg = { ...limitConfig({ limitBackoff: 60 }), limitResumePrompt: '   ' };
   const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
-  const cfg = limitConfig({ limitBackoff: 60, limitResumePrompt: '   ' });
   await runPass({ tmux, config: cfg, now: 1000 });
   const { results, acted } = await runPass({ tmux, config: cfg, now: 1060 });
   assert.equal(acted, 0);
   assert.deepEqual(tmux.sent, []);
   assert.equal(results[0].reason, 'no-prompt');
+  assert.equal(loadState()['%1'].limit.attempts, 1, 'the refusal must consume an attempt');
+
+  // Keep going: the breaker has to arrive rather than the pane retrying for ever.
+  let last;
+  for (let i = 2; i < 12; i++) {
+    last = await runPass({ tmux, config: cfg, now: 1060 + i * 100000 });
+  }
+  assert.deepEqual(tmux.sent, []);
+  assert.equal(last.results[0].reason, 'limit-gave-up');
+});
+
+/**
+ * The regression behind the two-pass design. The banner is the failed turn's own
+ * output, so it is still in the transcript after `/model` is sent — waiting for
+ * a clear screen before resuming meant never resuming, and re-sending `/model`
+ * once per backoff until the breaker stopped it.
+ */
+test('the resume still fires when the banner is left on screen after the switch', async () => {
+  const afterSwitch = [
+    "You've hit your Fable 5 limit · resets 3pm",
+    '> /model opus',
+    '  ⎿  Set model to opus',
+    '> ',
+  ].join('\n');
+
+  const tmux = fakeTmux({ screens: [LIMIT_FABLE] });
+  const cfg = limitConfig({ limitResumePrompt: 'Pick it back up.' });
+  const first = await runPass({ tmux, config: cfg, now: 1000 });
+  assert.equal(first.results[0].action, 'switch-model');
+
+  const tmux2 = fakeTmux({ screens: [afterSwitch] });
+  const second = await runPass({ tmux: tmux2, config: cfg, now: 1040 });
+  assert.equal(second.results[0].action, 'resume');
+  assert.deepEqual(tmux2.sent, ['Pick it back up.', '<Enter>'], 'not a second /model');
+  // The mechanism matters, not just the outcome: this has to be the switch's own
+  // follow-up, taken on the settle. Reaching a resume by falling through to the
+  // account-wide wait branch instead would spend a breaker attempt every time
+  // and put the prompt a full backoff late.
+  assert.equal(second.results[0].reason, 'switched');
+  assert.equal(loadState()['%1'].limit.attempts, 1, 'the follow-up is not a new attempt');
+});
+
+test('the preferred model is typed back in once its window has had time to refill', async () => {
+  const cfg = limitConfig({ limitRestoreModel: 'fable', limitRestoreAfter: 600, limitResumePrompt: 'go on' });
+  const tmux = fakeTmux({ screens: [LIMIT_FABLE] });
+  await runPass({ tmux, config: cfg, now: 1000 });          // switch
+  await runPass({ tmux: fakeTmux({ screens: [CONNECTED] }), config: cfg, now: 1040 }); // resume
+
+  const tmux3 = fakeTmux({ screens: [CONNECTED] });
+  const { results, acted } = await runPass({ tmux: tmux3, config: cfg, now: 1000 + 600 + 10 });
+  assert.equal(acted, 1);
+  assert.equal(results[0].action, 'restore-model');
+  assert.deepEqual(tmux3.sent, ['/model fable', '<Enter>'], 'the alias must survive the hand-off');
 });
 
 process.on('exit', () => rmSync(HOME, { recursive: true, force: true }));

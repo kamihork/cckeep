@@ -174,10 +174,14 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
       appendLog(`${pane.label}: closing wedged bridge via panel`);
     } else if (LIMIT_ACTIONS.has(action)) {
       const text = action === 'resume' ? String(config.limitResumePrompt ?? '').trim() : `/model ${model}`;
-      // An empty prompt would submit a blank line into the conversation, which
-      // reads as a stray keystroke and resumes nothing.
+      // loadConfig refuses an empty prompt when limits are on, so this only
+      // catches a caller that assembled its own config. Deliberately not routed
+      // through abort(): that rewinds the quota counters, and a condition that
+      // never clears would then loop forever instead of spending the breaker.
       if (!text) {
-        abort('no-prompt');
+        result.action = 'none';
+        result.reason = 'no-prompt';
+        results.push(result);
         continue;
       }
       tmux.sendText(pane.id, text);

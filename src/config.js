@@ -91,6 +91,21 @@ export function loadConfig(overrides = {}) {
     const value = merged[key];
     merged[key] = typeof value === 'string' ? !/^(0|false|no|off|)$/i.test(value.trim()) : Boolean(value);
   }
+  if (merged.limits) {
+    // Caught here rather than at send time. A pane that reaches the send and is
+    // turned away every pass never advances its own breaker, so a permanently
+    // broken setting is a permanent loop rather than something that gives up.
+    if (!String(merged.limitResumePrompt ?? '').trim()) {
+      throw new Error('config: limitResumePrompt must not be empty when limits is on');
+    }
+    // Typed straight after `/model`, so anything with whitespace or a slash in
+    // it would open the model picker and leave the pane sitting on it.
+    const model = String(merged.limitRestoreModel ?? '').trim();
+    if (model && !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(model)) {
+      throw new Error(`config: limitRestoreModel must be a model name or alias, not "${model}"`);
+    }
+    merged.limitRestoreModel = model;
+  }
   for (const key of NUMERIC) {
     const value = Number(merged[key]);
     if (!Number.isFinite(value) || value < 0) throw new Error(`config: ${key} must be a non-negative number`);
