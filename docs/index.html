@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cckeep — keep Claude Code Remote Control from silently going dead</title>
-<meta name="description" content="Remote Control retries for about 31 seconds and then gives up for good. cckeep notices and re-arms the session — without ever typing into one that's busy. Local, tmux-native, zero dependencies.">
+<meta name="description" content="Some Remote Control disconnects still end with you walking back to your desk to type /remote-control, and a spent quota window still stops the session cold. cckeep notices and re-arms it — without ever typing into one that's busy. Local, tmux-native, zero dependencies.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="cckeep — keep Claude Code Remote Control from silently going dead">
-<meta property="og:description" content="Remote Control gives up after ~31 seconds. cckeep re-arms the session — never typing into one that's busy. npm i -g cckeep.">
+<meta property="og:description" content="Some Remote Control disconnects still need a manual /remote-control, and a spent quota window stops the session. cckeep re-arms both — never typing into one that's busy. npm i -g cckeep.">
 <meta property="og:image" content="https://kamihork.github.io/cckeep/assets/social-preview.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
@@ -15,7 +15,7 @@
 <meta property="og:url" content="https://kamihork.github.io/cckeep/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="cckeep — keep Claude Code Remote Control from silently going dead">
-<meta name="twitter:description" content="Remote Control gives up after ~31 seconds. cckeep re-arms the session — never typing into one that's busy. npm i -g cckeep.">
+<meta name="twitter:description" content="Some Remote Control disconnects still need a manual /remote-control, and a spent quota window stops the session. cckeep re-arms both — never typing into one that's busy. npm i -g cckeep.">
 <meta name="twitter:image" content="https://kamihork.github.io/cckeep/assets/social-preview.png">
 <link rel="icon" type="image/png" href="assets/logo.png">
 <style>
@@ -100,14 +100,6 @@
   .shot { margin: 40px auto 0; max-width: 900px; }
   .shot img { width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: var(--shadow); display: block; }
 
-  /* the budget bar — the one visual that carries the whole pitch */
-  .budget { margin: 46px auto 0; max-width: 720px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px 26px; text-align: left; }
-  .budget .cap { color: var(--muted); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
-  .budget .track { display: flex; gap: 4px; margin: 14px 0 10px; align-items: flex-end; height: 46px; }
-  .budget .seg { background: var(--accent); border-radius: 4px; opacity: .95; }
-  .budget .seg.gone { background: var(--red); flex: 1; opacity: .85; }
-  .budget .lbl { display: flex; justify-content: space-between; color: var(--text-2); font-size: 13px; }
-  .budget .lbl .mono { color: var(--muted); }
 
   /* sections */
   section { padding: 72px 0 0; }
@@ -171,7 +163,7 @@
   <header class="hero">
     <img class="mark" src="assets/logo.png" alt="cckeep logo">
     <h1 data-i18n="h1">Your session is still running.<br><em>Your phone doesn't know.</em></h1>
-    <p class="sub" data-i18n="sub">Claude Code Remote Control retries for about 31 seconds and then gives up for good. cckeep notices, and re-arms the session — without ever typing into one that's busy.</p>
+    <p class="sub" data-i18n="sub">Claude Code 2.1.232 fixed the 31-second give-up. What it left behind: disconnects that still need a manual /remote-control, and a quota window that stops the session cold. cckeep notices, and re-arms it — without ever typing into one that's busy.</p>
     <div class="install mono"><span class="dollar">$</span><span id="cmd">npm i -g cckeep &amp;&amp; cckeep enable</span><button id="copy" data-i18n="copy">Copy</button></div>
     <div class="ctas">
       <a class="btn primary" href="https://github.com/kamihork/cckeep" data-i18n="ctaGh">View on GitHub</a>
@@ -182,29 +174,16 @@
     <div class="shot">
       <img src="assets/demo.gif" alt="cckeep detecting a dead Remote Control link and re-arming it" loading="lazy">
     </div>
-
-    <div class="budget">
-      <div class="cap" data-i18n="budgetCap">Remote Control's entire reconnect budget</div>
-      <div class="track">
-        <div class="seg" style="width:26px;height:16px" title="1s"></div>
-        <div class="seg" style="width:26px;height:22px" title="2s"></div>
-        <div class="seg" style="width:26px;height:28px" title="4s"></div>
-        <div class="seg" style="width:26px;height:34px" title="8s"></div>
-        <div class="seg" style="width:26px;height:40px" title="16s"></div>
-        <div class="seg gone" style="height:46px"></div>
-      </div>
-      <div class="lbl"><span data-i18n="budgetL">5 attempts · 1 / 2 / 4 / 8 / 16 s</span><span class="mono" data-i18n="budgetR">31 s, then closed for good</span></div>
-    </div>
   </header>
 
   <section>
-    <h2 class="sec" data-i18n="whyH">Thirty-one seconds is the whole budget.</h2>
+    <h2 class="sec" data-i18n="whyH">What Claude Code still leaves to you.</h2>
     <p class="seclead" data-i18n="whyLead">Every one of these outlasts it. The link closes, and the documented recovery is to walk back to your desk and type <code>/remote-control</code>.</p>
     <div class="whygrid">
-      <div class="why"><div class="t"><span>💤</span><span data-i18n="w1t">The lid</span></div><p data-i18n="w1">You close the laptop to move rooms. It reconnects for 31 seconds, then stops trying.</p></div>
-      <div class="why"><div class="t"><span>📶</span><span data-i18n="w2t">The handoff</span></div><p data-i18n="w2">Wi-Fi to LTE, office to café, VPN reconnecting. Longer than half a minute, and it's over.</p></div>
-      <div class="why"><div class="t"><span>🛗</span><span data-i18n="w3t">The elevator</span></div><p data-i18n="w3">Two floors of no signal costs you the session you were about to check on.</p></div>
-      <div class="why"><div class="t"><span>🪢</span><span data-i18n="w4t">The wedge</span></div><p data-i18n="w4">Sometimes it just sits in “reconnecting” forever — <a href="https://github.com/anthropics/claude-code/issues/34255">issue #34255</a>, open since March, 99 👍, no fix.</p></div>
+      <div class="why"><div class="t"><span>💓</span><span data-i18n="w1t">The heartbeat</span></div><p data-i18n="w1">The link stays up while the session's heartbeats don't. Claude Code re-registers for about 30 minutes, then disconnects — and the documented recovery is to run /remote-control.</p></div>
+      <div class="why"><div class="t"><span>🚫</span><span data-i18n="w2t">The 403</span></div><p data-i18n="w2">A VPN or network change puts something in the path that answers 403. Claude Code tolerates it for three minutes, then disconnects and names what refused. Nothing brings it back.</p></div>
+      <div class="why"><div class="t"><span>⏳</span><span data-i18n="w3t">The quota window</span></div><p data-i18n="w3">Nothing to do with the connection: the window your session was spending runs out, and Claude Code prints a banner and stops. No version of it picks the work back up when the window resets.</p></div>
+      <div class="why"><div class="t"><span>🪢</span><span data-i18n="w4t">The wedge</span></div><p data-i18n="w4">Sometimes it just sits in “reconnecting” — <a href="https://github.com/anthropics/claude-code/issues/34255">issue #34255</a>, open since March, 99 👍. Whether it still reproduces against the reconnect path 2.1.232 reworked is unconfirmed.</p></div>
     </div>
   </section>
 
@@ -212,7 +191,7 @@
     <h2 class="sec" data-i18n="safeH">It will not type into a session that's working.</h2>
     <p class="seclead" data-i18n="safeLead">A watchdog that types into your terminal on a timer is a liability unless it's certain the moment is safe. Every rule below is enforced and tested.</p>
     <div class="featgrid">
-      <div class="feat"><div class="ico">⏸️</div><div class="t" data-i18n="s1t">Never during a turn</div><p data-i18n="s1">The pane is captured twice, two seconds apart. A running turn animates a spinner and a token counter — identical captures mean nothing is happening, different ones mean hands off.</p></div>
+      <div class="feat"><div class="ico">⏸️</div><div class="t" data-i18n="s1t">Never during a turn</div><p data-i18n="s1">The pane is captured three times, on an interval that is deliberately not round — an animation whose period divided it would alias into identical frames. A running turn animates a spinner and a token counter, so identical captures mean nothing is happening, different ones mean hands off.</p></div>
       <div class="feat"><div class="ico">🚧</div><div class="t" data-i18n="s2t">Never into a dialog</div><p data-i18n="s2">Permission prompts turn Enter into a selection. If a selection marker is on screen, the pass is skipped entirely.</p></div>
       <div class="feat"><div class="ico">📱</div><div class="t" data-i18n="s3t">Never into your panel</div><p data-i18n="s3">/remote-control opens a status panel with a QR code. cckeep presses Enter there only when it opened the panel itself.</p></div>
       <div class="feat"><div class="ico">🔕</div><div class="t" data-i18n="s4t">Never a session you turned off</div><p data-i18n="s4">Only panes seen connected at least once are ever chased. Disable Remote Control deliberately and it stays off.</p></div>
@@ -229,8 +208,8 @@
         <thead><tr><th data-i18n="th1">State on screen</th><th data-i18n="th2">What it means</th><th data-i18n="th3">What cckeep does</th></tr></thead>
         <tbody>
           <tr><td class="state"><code>/rc active</code></td><td data-i18n="r1a">connected</td><td data-i18n="r1b">remembers the pane, nothing else</td></tr>
-          <tr><td class="state"><code>/rc reconnecting</code></td><td data-i18n="r2a">inside the 31-second budget</td><td data-i18n="r2b">waits — this usually resolves on its own</td></tr>
-          <tr><td class="state"><code>/rc reconnecting</code> <span data-i18n="r3x">· 2 min</span></td><td data-i18n="r3a">wedged (#34255)</td><td data-i18n="r3b">cycles the bridge: opens the panel, disconnects, reconnects</td></tr>
+          <tr><td class="state"><code>/rc reconnecting</code></td><td data-i18n="r2a">Claude Code is reconnecting, with about 30 minutes to do it</td><td data-i18n="r2b">waits — this is the case 2.1.232 made reliable</td></tr>
+          <tr><td class="state"><code>/rc reconnecting</code> <span data-i18n="r3x">· 35 min</span></td><td data-i18n="r3a">past Claude Code's own window: wedged (#34255), or an outage still running</td><td data-i18n="r3b">cycles the bridge: opens the panel, disconnects, reconnects</td></tr>
           <tr><td class="state"><code>Remote Control disconnected</code></td><td data-i18n="r4a">gave up</td><td data-i18n="r4b">re-arms immediately</td></tr>
           <tr><td class="state" data-i18n="r5s">no indicator, pane had one before</td><td data-i18n="r5a">notification scrolled away</td><td data-i18n="r5b">re-arms after 4 quiet checks</td></tr>
           <tr><td class="state" data-i18n="r6s">no indicator, pane never had one</td><td data-i18n="r6a">not your setup</td><td data-i18n="r6b">nothing, ever</td></tr>
@@ -259,7 +238,7 @@
 
   <section>
     <h2 class="sec" data-i18n="scopeH">The best outcome is that this becomes unnecessary.</h2>
-    <p class="seclead" data-i18n="scopeLead">cckeep re-arms a connection. It can't raise Claude Code's retry budget — that's a constant inside a closed-source binary, and only Anthropic can change it. If <a href="https://github.com/anthropics/claude-code/issues/34255">#34255</a> gets fixed, the right move is to archive this repo. Until then, a 👍 over there is worth more than a ⭐ here.</p>
+    <p class="seclead" data-i18n="scopeLead">cckeep re-arms a connection and picks stopped work back up. Claude Code 2.1.232 already removed the biggest reason it existed, which is exactly the right direction. If <a href="https://github.com/anthropics/claude-code/issues/34255">#34255</a> gets fixed too, and a session resumes on its own when its quota window resets, the right move is to archive this repo. Until then, a 👍 over there is worth more than a ⭐ here.</p>
   </section>
 
   <!-- Hidden automatically if star-history.com can't render the chart —
@@ -291,22 +270,19 @@ const I18N = {
   en: {
     langBtn: '日本語',
     h1Raw: "Your session is still running.<br><em>Your phone doesn't know.</em>",
-    sub: "Claude Code Remote Control retries for about 31 seconds and then gives up for good. cckeep notices, and re-arms the session — without ever typing into one that's busy.",
+    sub: "Claude Code 2.1.232 fixed the 31-second give-up. What it left behind: disconnects that still need a manual /remote-control, and a quota window that stops the session cold. cckeep notices, and re-arms it — without ever typing into one that's busy.",
     copy: 'Copy', copied: 'Copied',
     ctaGh: 'View on GitHub', ctaDocs: 'README',
     zeroesRaw: '<b>Zero dependencies</b> · <b>zero cloud</b> · <b>zero telemetry</b> — it reads your tmux panes and nothing leaves the machine.',
-    budgetCap: "Remote Control's entire reconnect budget",
-    budgetL: '5 attempts · 1 / 2 / 4 / 8 / 16 s',
-    budgetR: '31 s, then closed for good',
-    whyH: 'Thirty-one seconds is the whole budget.',
-    whyLeadRaw: 'Every one of these outlasts it. The link closes, and the documented recovery is to walk back to your desk and type <code>/remote-control</code>.',
-    w1t: 'The lid', w1: 'You close the laptop to move rooms. It reconnects for 31 seconds, then stops trying.',
-    w2t: 'The handoff', w2: "Wi-Fi to LTE, office to café, VPN reconnecting. Longer than half a minute, and it's over.",
-    w3t: 'The elevator', w3: 'Two floors of no signal costs you the session you were about to check on.',
-    w4t: 'The wedge', w4Raw: 'Sometimes it just sits in “reconnecting” forever — <a href="https://github.com/anthropics/claude-code/issues/34255">issue #34255</a>, open since March, 99 👍, no fix.',
+    whyH: 'What Claude Code still leaves to you.',
+    whyLeadRaw: 'Remote Control now reconnects for about 30 minutes on its own, and an interactive session retries for as long as an outage lasts — the failure this tool was built for is fixed. These are the ones that still end with the link closed, or the session stopped, and you walking back to your desk to type <code>/remote-control</code>.',
+    w1t: 'The heartbeat', w1: "The link stays up while the session's heartbeats don't. Claude Code re-registers for about 30 minutes, then disconnects — and the documented recovery is to run /remote-control.",
+    w2t: 'The 403', w2: 'A VPN or network change puts something in the path that answers 403. Claude Code tolerates it for three minutes, then disconnects and names what refused. Nothing brings it back.',
+    w3t: 'The quota window', w3: 'Nothing to do with the connection: the window your session was spending runs out, and Claude Code prints a banner and stops. No version of it picks the work back up when the window resets.',
+    w4t: 'The wedge', w4Raw: 'Sometimes it just sits in “reconnecting” — <a href="https://github.com/anthropics/claude-code/issues/34255">issue #34255</a>, open since March, 99 👍. Whether it still reproduces against the reconnect path 2.1.232 reworked is unconfirmed.',
     safeH: "It will not type into a session that's working.",
     safeLead: "A watchdog that types into your terminal on a timer is a liability unless it's certain the moment is safe. Every rule below is enforced and tested.",
-    s1t: 'Never during a turn', s1: 'The pane is captured twice, two seconds apart. A running turn animates a spinner and a token counter — identical captures mean nothing is happening, different ones mean hands off.',
+    s1t: 'Never during a turn', s1: 'The pane is captured three times, on an interval that is deliberately not round — an animation whose period divided it would alias into identical frames. A running turn animates a spinner and a token counter, so identical captures mean nothing is happening, different ones mean hands off.',
     s2t: 'Never into a dialog', s2: 'Permission prompts turn Enter into a selection. If a selection marker is on screen, the pass is skipped entirely.',
     s3t: 'Never into your panel', s3: '/remote-control opens a status panel with a QR code. cckeep presses Enter there only when it opened the panel itself.',
     s4t: 'Never a session you turned off', s4: 'Only panes seen connected at least once are ever chased. Disable Remote Control deliberately and it stays off.',
@@ -316,8 +292,8 @@ const I18N = {
     stateH: 'What it watches for.',
     th1: 'State on screen', th2: 'What it means', th3: 'What cckeep does',
     r1a: 'connected', r1b: 'remembers the pane, nothing else',
-    r2a: 'inside the 31-second budget', r2b: 'waits — this usually resolves on its own',
-    r3x: '· 2 min', r3a: 'wedged (#34255)', r3b: 'cycles the bridge: opens the panel, disconnects, reconnects',
+    r2a: 'Claude Code is reconnecting, with about 30 minutes to do it', r2b: 'waits — this is the case 2.1.232 made reliable',
+    r3x: '· 35 min', r3a: "past Claude Code's own window: wedged (#34255), or an outage still running", r3b: 'cycles the bridge: opens the panel, disconnects, reconnects',
     r4a: 'gave up', r4b: 're-arms immediately',
     r5s: 'no indicator, pane had one before', r5a: 'notification scrolled away', r5b: 're-arms after 4 quiet checks',
     r6s: 'no indicator, pane never had one', r6a: 'not your setup', r6b: 'nothing, ever',
@@ -333,28 +309,25 @@ const I18N = {
     noteP1: "A session started in a bare terminal can't be reached from another process — there's no channel to type into, so no tool can help it. Restarting the process isn't an alternative: that ends the conversation, which is the thing you were trying to save.",
     noteP2Raw: 'The README has a drop-in shell function that wraps interactive launches only, so <code>claude update</code> and <code>claude -p</code> keep behaving normally.',
     scopeH: 'The best outcome is that this becomes unnecessary.',
-    scopeLeadRaw: "cckeep re-arms a connection. It can't raise Claude Code's retry budget — that's a constant inside a closed-source binary, and only Anthropic can change it. If <a href=\"https://github.com/anthropics/claude-code/issues/34255\">#34255</a> gets fixed, the right move is to archive this repo. Until then, a 👍 over there is worth more than a ⭐ here.",
+    scopeLeadRaw: "cckeep re-arms a connection and picks stopped work back up. Claude Code 2.1.232 already removed the biggest reason it existed, which is exactly the right direction. If <a href=\"https://github.com/anthropics/claude-code/issues/34255\">#34255</a> gets fixed too, and a session resumes on its own when its quota window resets, the right move is to archive this repo. Until then, a 👍 over there is worth more than a ⭐ here.",
     starH: 'Star history',
   },
   ja: {
     langBtn: 'English',
     h1Raw: 'セッションはまだ動いている。<br><em>気づいていないのはスマホだけ。</em>',
-    sub: 'Claude Code のリモートコントロールは、約31秒で再接続を諦めたきり戻ってきません。cckeep はそれを検知して繋ぎ直します。作業中のセッションには決して手を出しません。',
+    sub: '31秒で諦める問題は Claude Code 2.1.232 で直りました。残ったのは、手動の /remote-control でしか戻らない切断と、枠を使い切ったまま止まるセッションです。cckeep はそれを検知して繋ぎ直します。作業中のセッションには決して手を出しません。',
     copy: 'コピー', copied: 'コピーしました',
     ctaGh: 'GitHub を見る', ctaDocs: 'README',
     zeroesRaw: '<b>依存ゼロ</b> · <b>クラウドなし</b> · <b>テレメトリなし</b>。tmux のペインを読むだけで、マシンの外へは何も送りません。',
-    budgetCap: 'リモートコントロールが再接続を試みる回数',
-    budgetL: '5回(1 / 2 / 4 / 8 / 16 秒間隔)',
-    budgetR: '合計31秒。使い切ると二度と戻らない',
-    whyH: '再接続を試みるのは、たった31秒',
-    whyLeadRaw: '下に並べたものは、どれも31秒より長く続きます。接続は閉じられ、公式に案内されている復旧方法は「机に戻って <code>/remote-control</code> と打つ」ことだけです。',
-    w1t: 'ノートを閉じる', w1: '部屋を移ろうとして閉じただけで、31秒後には接続が切れています。',
-    w2t: '回線の切り替え', w2: 'Wi-Fi から LTE へ、オフィスからカフェへ、VPN の再接続。30秒を超えたらもう戻りません。',
-    w3t: 'エレベーター', w3: '数十秒の圏外。ちょうど様子を見ようとしていたセッションが、それだけで失われます。',
-    w4t: '固まる', w4Raw: '「reconnecting」の表示のまま、いつまでも動かなくなることもあります(<a href="https://github.com/anthropics/claude-code/issues/34255">issue #34255</a>。3月から未修正、👍 99件)。',
+    whyH: 'Claude Code 側で解決していないもの',
+    whyLeadRaw: 'リモートコントロールは今、瞬断のあと約30分は自力で再接続を続け、ネットワーク障害中は復旧するまで再試行します。このツールが最初に狙っていた不具合は直りました。以下は、それでも接続が閉じたまま、あるいはセッションが止まったままになり、机に戻って <code>/remote-control</code> と打つしかないものです。',
+    w1t: 'heartbeat が通らない', w1: '接続自体は生きているのに、セッションの heartbeat だけが通らない状態です。Claude Code は約30分ほど再登録を試みたあと切断し、案内される復旧方法は /remote-control の実行だけです。',
+    w2t: '403 で弾かれる', w2: 'VPN やネットワークの切り替えで、間に入った何かが 403 を返すようになります。Claude Code は3分まで耐えたあと切断し、何が拒否したのかを表示します。自力では戻りません。',
+    w3t: '枠を使い切る', w3: '接続とは無関係な止まり方です。セッションが使っていた枠が尽きるとバナーが出て停止します。枠が戻ったときに作業を再開してくれるバージョンは存在しません。',
+    w4t: '固まる', w4Raw: '「reconnecting」の表示のまま動かなくなることがあります(<a href="https://github.com/anthropics/claude-code/issues/34255">issue #34255</a>。3月から未修正、👍 99件)。2.1.232 で作り直された再接続の経路でも再現するかは未確認です。',
     safeH: '作業中のセッションには手を出しません',
     safeLead: 'タイマーでターミナルに文字を打ち込むツールは、安全だと確信できない限り危険なだけです。以下はすべて実装済みで、テストで守られています。',
-    s1t: 'ターンの実行中は打たない', s1: 'ペインを2秒あけて2回キャプチャします。実行中はスピナーとトークン数が動くので、2回が同じなら何もしていない証拠です。違っていれば手を出しません。',
+    s1t: 'ターンの実行中は打たない', s1: 'ペインを3回キャプチャします。間隔はわざと半端な値です。割り切れる周期のアニメーションがあると、同じ絵が並んで静止に見えてしまうためです。実行中はスピナーとトークン数が動くので、3回が同じなら何もしていない証拠、違っていれば手を出しません。',
     s2t: 'ダイアログには打たない', s2: '権限プロンプトでは Enter が「選択」になってしまいます。選択マーカーが画面にあれば、その回はまるごと見送ります。',
     s3t: '自分で開いたパネルには触らない', s3: '/remote-control は QR コード付きのステータスパネルを開きます。cckeep が Enter を押すのは、自分でパネルを開いたときだけです。',
     s4t: '自分で切った接続は戻さない', s4: '一度でも接続できていたペインだけを対象にします。意図して切ったものは切れたままです。',
@@ -364,8 +337,8 @@ const I18N = {
     stateH: '何を見て判断しているか',
     th1: '画面の状態', th2: '意味', th3: 'cckeep の動作',
     r1a: '接続できている', r1b: 'ペインを覚えるだけ',
-    r2a: '31秒の再試行中', r2b: '待つ(たいていはこれで戻る)',
-    r3x: '(2分以上)', r3a: '固まっている(#34255)', r3b: 'パネルを開いて切断し、繋ぎ直す',
+    r2a: '再接続中(約30分の猶予がある)', r2b: '待つ(2.1.232 で確実に戻るようになった範囲)',
+    r3x: '(35分以上)', r3a: 'Claude Code 自身の猶予を超えた。固まっている(#34255)か、障害が続いているか', r3b: 'パネルを開いて切断し、繋ぎ直す',
     r4a: '諦めた', r4b: 'すぐに繋ぎ直す',
     r5s: '表示なし(以前は出ていた)', r5a: '通知が流れて消えた', r5b: '4回続けて静かなら繋ぎ直す',
     r6s: '表示なし(一度も出ていない)', r6a: 'そもそも使っていない', r6b: '何もしない',
@@ -381,7 +354,7 @@ const I18N = {
     noteP1: '素のターミナルで起動したセッションには、外のプロセスから入力を送る手段がありません。届く経路がない以上、どんなツールでも手が出せないということです。プロセスを再起動すればいい、という話でもありません。それでは会話そのものが終わってしまい、守りたかったものを自分で失うことになります。',
     noteP2Raw: 'README に、対話起動のときだけ tmux で包むシェル関数を用意してあります。<code>claude update</code> や <code>claude -p</code> はそのまま素通しします。',
     scopeH: 'このツールが要らなくなるのが、いちばん良い結末',
-    scopeLeadRaw: 'cckeep がするのは接続の張り直しだけです。Claude Code 側の再試行回数は変えられません。クローズドソースのバイナリに埋め込まれた定数なので、変えられるのは Anthropic だけです。<a href="https://github.com/anthropics/claude-code/issues/34255">#34255</a> が修正されたら、このリポジトリはアーカイブするのが正解だと思っています。それまでは、ここに ⭐ を付けるより向こうに 👍 を付けるほうが役に立ちます。',
+    scopeLeadRaw: 'cckeep がするのは接続の張り直しと、止まった作業の再開だけです。このツールが存在する一番の理由は、Claude Code 2.1.232 が既に取り除きました。それが正しい方向だと思っています。<a href="https://github.com/anthropics/claude-code/issues/34255">#34255</a> も直り、枠が戻ったときにセッションが自力で再開するようになったら、このリポジトリはアーカイブするのが正解です。それまでは、ここに ⭐ を付けるより向こうに 👍 を付けるほうが役に立ちます。',
     starH: 'Star history',
   },
 };
