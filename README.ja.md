@@ -4,7 +4,7 @@
   <h1>cckeep</h1>
 
   <p><strong>Claude Code のリモートコントロールが黙って死ぬのを防ぎます。</strong><br>
-  リモートコントロールは約31秒で再接続を諦め、二度と戻りません。<br>
+  切断の中には、今も机に戻って <code>/remote-control</code> と打つしかないものがあります。<br>
   <code>cckeep</code> がそれを検知して繋ぎ直します。作業中のセッションには手を出しません。</p>
 
   <p>
@@ -16,6 +16,10 @@
 
   <p><a href="https://kamihork.github.io/cckeep/">Website</a> | <a href="README.md">English</a> | 日本語</p>
 </div>
+
+> **最初にお読みください — Claude Code 2.1.232(2026年8月)で、このツールの前提が変わりました。**
+> リモートコントロールは瞬断のあと約30分間再接続を続けるようになり、ネットワーク障害中は復旧するまで再試行します。**[何が問題か](#何が問題か)に書かれている「31秒で諦める」は、それ以前のバージョンの挙動です。**
+> 現行の Claude Code で cckeep が今も担うのは、手動の `/remote-control` でしか戻らない切断(presence heartbeat が約30分失敗し続けた場合と、HTTP 403 が3分以上続いた場合)、および Claude Code 側に対応が存在しない[使用量の上限](#使用量の上限任意で有効化)からの復帰です。
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/kamihork/cckeep/main/assets/demo.gif" width="880" alt="切断されたリモートコントロールを cckeep が検知して繋ぎ直すところ">
