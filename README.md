@@ -17,9 +17,7 @@
   <p><a href="https://kamihork.github.io/cckeep/">Website</a> | English | <a href="README.ja.md">日本語</a></p>
 </div>
 
-> **Read this first — Claude Code 2.1.232 (August 2026) moved the ground this tool stands on.**
-> Remote Control now keeps reconnecting for about 30 minutes after a network blip, and an interactive session retries for as long as an outage lasts. **The 31-second retry budget described under [The problem](#the-problem) is the behavior of earlier versions.**
-> What cckeep still covers on current Claude Code: the disconnects that end in a manual `/remote-control` — presence heartbeats failing for about 30 minutes, and HTTP 403 blocks lasting over 3 minutes — plus [usage limits](#usage-limits-opt-in), which Claude Code does not pick up from at all.
+> **Claude Code 2.1.232 (August 2026) fixed the failure cckeep was first written for.** Remote Control no longer gives up after 31 seconds — it now reconnects for about 30 minutes on its own. What still needs a hand is narrower than it was, and [The problem](#the-problem) says exactly what.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/kamihork/cckeep/main/assets/demo.gif" width="880" alt="cckeep detecting a dead Remote Control link and re-arming it">
@@ -27,11 +25,17 @@
 
 ## The problem
 
-[Remote Control](https://code.claude.com/docs/en/remote-control) lets you drive a local Claude Code session from your phone or from claude.ai. It reconnects on its own when the link drops — for **5 attempts with 1/2/4/8/16-second backoff**. That is a **31-second** budget. Close your laptop lid, switch Wi-Fi, ride an elevator, and the budget is gone. The connection closes and never comes back.
+[Remote Control](https://code.claude.com/docs/en/remote-control) lets you drive a local Claude Code session from your phone or from claude.ai. It used to give up on a dropped link after **5 attempts over about 31 seconds** — close the laptop lid, switch Wi-Fi, ride an elevator, and the budget was gone. Claude Code **2.1.232** fixed that. Remote Control now keeps reconnecting for about 30 minutes after a blip, and an interactive session retries for as long as a network outage lasts. If that is the failure you came here for, you do not need cckeep any more, and that is a good outcome.
 
-There is a second failure too: the session wedges in `/rc reconnecting` and sits there forever. That one is [anthropics/claude-code#34255](https://github.com/anthropics/claude-code/issues/34255) — open since March 2026, 99 👍, no fix.
+What 2.1.232 did not change is the disconnects that end with the link closed and a manual step waiting for you:
 
-Either way you find out the same way: you reach for your phone, and the session is gone. The documented recovery is to walk back to your desk and type `/remote-control`.
+- **Presence heartbeats failing.** The connection stays up while the session's heartbeats do not. Claude Code re-registers for about 30 minutes and then disconnects with `could not reach the Remote Control server for about 30 minutes`. [The documented recovery is to run `/remote-control`.](https://code.claude.com/docs/en/remote-control#limitations)
+- **An HTTP 403 that outlasts three minutes.** A VPN or network change puts something in the path that answers 403. Claude Code tolerates it for three minutes, then disconnects and names what refused. Nothing brings it back on its own.
+- **The wedge.** The session sits in `/rc reconnecting` and stays there. That is [anthropics/claude-code#34255](https://github.com/anthropics/claude-code/issues/34255) — open since March 2026, 99 👍. Whether it still reproduces against the reconnect path 2.1.232 reworked is unconfirmed; cckeep waits [35 minutes](#configuration) before treating it as one, so a slow-but-working reconnect is never cut short.
+
+And one failure that has nothing to do with the connection: the quota window your session was spending [runs out](#usage-limits-opt-in). Claude Code prints a banner and stops. No version of it picks the work back up when the window resets.
+
+You find out about every one of these the same way — you reach for your phone, and the session is not there. cckeep notices instead, and re-arms it.
 
 ## Quick start
 
@@ -85,8 +89,8 @@ This is the whole design problem. A watchdog that types into your terminal on a 
 | State on screen | What it means | What cckeep does |
 |---|---|---|
 | `/rc active`, or a truncated `/rc` | connected | remembers the pane, nothing else |
-| `/rc reconnecting` | inside the 31-second budget | waits — this usually resolves |
-| `/rc reconnecting`, 2 minutes on | wedged ([#34255](https://github.com/anthropics/claude-code/issues/34255)) | cycles the bridge: opens the panel, disconnects, reconnects |
+| `/rc reconnecting` | Claude Code is reconnecting, and has about 30 minutes to do it | waits — this is the case 2.1.232 made reliable |
+| `/rc reconnecting`, 35 minutes on | past Claude Code's own window: wedged ([#34255](https://github.com/anthropics/claude-code/issues/34255)), or an outage still running | cycles the bridge: opens the panel, disconnects, reconnects |
 | `Remote Control disconnected` | gave up | re-arms immediately |
 | no indicator, on a pane that had one | notification scrolled away | re-arms after 4 quiet checks |
 | no indicator, on a pane that never had one | not your setup | nothing, ever |
@@ -185,7 +189,7 @@ Defaults are tuned so you never notice it. Override in `~/.cckeep/config.json`, 
 {
   "interval": 15,
   "cooldown": 300,
-  "stuckLimit": 8,
+  "stuckLimit": 140,
   "missLimit": 4,
   "settle": 2000,
   "paneCommand": "claude",
@@ -195,10 +199,10 @@ Defaults are tuned so you never notice it. Override in `~/.cckeep/config.json`, 
 
 - `interval` — seconds between passes (also what `enable` schedules)
 - `cooldown` — seconds before the same pane may be acted on again
-- `stuckLimit` — checks in `reconnecting` before the bridge is treated as wedged
+- `stuckLimit` — checks in `reconnecting` before the bridge is treated as wedged. Multiplied by `interval`, so the default is 35 minutes. It has to stay clear of the roughly 30 minutes Claude Code now spends reconnecting on its own, or cckeep cycles a link that was coming back. **Upgrading from before 0.7.0?** A `config.json` pinning this to the old `8` keeps the two-minute behavior — raise it
 - `missLimit` — checks with no indicator before re-arming a pane that had one
 - `maxRearms` — re-arms allowed per outage before it gives up until the link is seen healthy again
-- `settle` — milliseconds between the two captures of the idle check; raise it on a slow machine
+- `settle` — milliseconds between the three captures of the idle check; raise it on a slow machine
 - `paneCommand` — foreground process name that marks a pane as Claude Code
 - `tmuxSocket` — socket name or path, if your tmux runs on something other than the default server (`tmux -L name` / `-S path`). Empty means the default
 - `tmuxBinary` — absolute path to tmux, if yours lives somewhere the usual lookup misses

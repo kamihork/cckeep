@@ -17,9 +17,7 @@
   <p><a href="https://kamihork.github.io/cckeep/">Website</a> | <a href="README.md">English</a> | 日本語</p>
 </div>
 
-> **最初にお読みください — Claude Code 2.1.232(2026年8月)で、このツールの前提が変わりました。**
-> リモートコントロールは瞬断のあと約30分間再接続を続けるようになり、ネットワーク障害中は復旧するまで再試行します。**[何が問題か](#何が問題か)に書かれている「31秒で諦める」は、それ以前のバージョンの挙動です。**
-> 現行の Claude Code で cckeep が今も担うのは、手動の `/remote-control` でしか戻らない切断(presence heartbeat が約30分失敗し続けた場合と、HTTP 403 が3分以上続いた場合)、および Claude Code 側に対応が存在しない[使用量の上限](#使用量の上限任意で有効化)からの復帰です。
+> **cckeep が最初に狙っていた不具合は、Claude Code 2.1.232(2026年8月)で修正されました。** リモートコントロールが31秒で諦めることはもうありません。今は約30分にわたって自力で再接続を続けます。手を貸す必要が残っている範囲は以前より狭く、それが何かは[何が問題か](#何が問題か)に書いてあります。
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/kamihork/cckeep/main/assets/demo.gif" width="880" alt="切断されたリモートコントロールを cckeep が検知して繋ぎ直すところ">
@@ -27,11 +25,17 @@
 
 ## 何が問題か
 
-[リモートコントロール](https://code.claude.com/docs/en/remote-control)は、手元で動いている Claude Code のセッションをスマホや claude.ai から操作する機能です。接続が切れても自動で再接続してくれますが、その回数は **1/2/4/8/16秒の間隔で5回まで**、合計 **31秒**しかありません。ノートを閉じる、Wi-Fi を切り替える、エレベーターに乗る。それだけで再試行は尽き、接続は閉じられて二度と戻りません。
+[リモートコントロール](https://code.claude.com/docs/en/remote-control)は、手元で動いている Claude Code のセッションをスマホや claude.ai から操作する機能です。以前は接続が切れると **1/2/4/8/16秒の間隔で5回、合計31秒**で再試行を使い切っていました。ノートを閉じる、Wi-Fi を切り替える、エレベーターに乗る。それだけで接続は閉じられ、二度と戻りませんでした。これは Claude Code **2.1.232** で修正されています。今は瞬断のあと約30分にわたって再接続を続け、ネットワーク障害中は復旧するまで再試行します。この不具合のために来られたのであれば、もう cckeep は必要ありません。それでいいと思います。
 
-壊れ方はもう一つあります。`/rc reconnecting` の表示のまま、いつまでも動かなくなるパターンです。これが [anthropics/claude-code#34255](https://github.com/anthropics/claude-code/issues/34255) で、2026年3月に報告されてから 👍 99件を集めたまま、まだ直っていません。
+2.1.232 でも変わらなかったのは、接続が閉じられたまま手作業が残る切断です。
 
-どちらの場合も、気づき方は同じです。スマホを開いたらセッションが消えている。そして公式に案内されている復旧方法は、机に戻って `/remote-control` と打つことだけです。
+- **presence heartbeat が失敗し続ける場合。** 接続自体は生きているのに、セッションの heartbeat だけが通らない状態です。Claude Code は約30分ほど再登録を試みたのち、`could not reach the Remote Control server for about 30 minutes` と表示して切断します。[案内されている復旧方法は `/remote-control` を実行することだけです。](https://code.claude.com/docs/en/remote-control#limitations)
+- **HTTP 403 が3分を超えて続く場合。** VPN やネットワークの切り替えで、間に入った何かが 403 を返すようになった状態です。Claude Code は3分まで耐えたあと切断し、何が拒否したのかを表示します。自力では戻りません。
+- **固まる場合。** `/rc reconnecting` の表示のまま動かなくなります。これが [anthropics/claude-code#34255](https://github.com/anthropics/claude-code/issues/34255) で、2026年3月に報告されてから 👍 99件を集めています。2.1.232 で作り直された再接続の経路でも再現するかは未確認です。cckeep は[35分](#設定)待ってからでないとこれと判定しないので、時間はかかっていても成功する再接続を途中で切ることはありません。
+
+さらに、接続とは無関係な止まり方がもう一つあります。セッションが使っていた[枠を使い切った](#使用量の上限任意で有効化)場合です。Claude Code はバナーを表示して停止します。枠が回復したときに作業を再開してくれるバージョンは存在しません。
+
+どれも気づき方は同じです。スマホを開いたら、セッションがそこにいない。cckeep が代わりに気づいて、繋ぎ直します。
 
 ## クイックスタート
 
@@ -83,8 +87,8 @@ asdf reshim nodejs # asdf
 | 画面の状態 | 意味 | cckeep の動作 |
 |---|---|---|
 | `/rc active`、または切り詰められた `/rc` | 接続できている | ペインを覚えるだけ |
-| `/rc reconnecting` | 31秒の再試行中 | 待つ(たいていはこれで戻る) |
-| `/rc reconnecting` が2分以上 | 固まっている([#34255](https://github.com/anthropics/claude-code/issues/34255)) | パネルを開いて切断し、繋ぎ直す |
+| `/rc reconnecting` | Claude Code が再接続中(約30分の猶予がある) | 待つ(2.1.232 で確実に戻るようになった範囲) |
+| `/rc reconnecting` が35分以上 | Claude Code 自身の猶予を超えた。固まっている([#34255](https://github.com/anthropics/claude-code/issues/34255))か、障害がまだ続いているか | パネルを開いて切断し、繋ぎ直す |
 | `Remote Control disconnected` | 諦めた | すぐに繋ぎ直す |
 | 表示なし(以前は出ていた) | 通知が流れて消えた | 4回続けて静かなら繋ぎ直す |
 | 表示なし(一度も出ていない) | そもそも使っていない | 何もしない |
@@ -181,7 +185,7 @@ Ctrl+B の衝突については何もしなくて構いません。Claude Code �
 {
   "interval": 15,
   "cooldown": 300,
-  "stuckLimit": 8,
+  "stuckLimit": 140,
   "missLimit": 4,
   "settle": 2000,
   "paneCommand": "claude",
@@ -191,10 +195,10 @@ Ctrl+B の衝突については何もしなくて構いません。Claude Code �
 
 - `interval`: 巡回する間隔(秒)。`enable` が登録する間隔でもあります
 - `cooldown`: 同じペインに再び手を出せるようになるまでの秒数
-- `stuckLimit`: `reconnecting` の表示が何回続いたら固まったとみなすか
+- `stuckLimit`: `reconnecting` の表示が何回続いたら固まったとみなすか。`interval` を掛けた値が実時間になるので、既定では35分です。Claude Code 自身が自力で再接続を続ける約30分より必ず長くしてください。短いと、戻ってくるはずの接続を cckeep が切ってしまいます。**0.7.0 より前から使っている場合**、`config.json` に `8` が書かれていると2分のままなので、上げてください
 - `missLimit`: 以前は表示があったペインが、何回続けて無表示なら繋ぎ直すか
 - `maxRearms`: 1回の障害につき何回まで繋ぎ直しを試みるか。超えたら回復を見るまで打ち切り
-- `settle`: 静止判定に使う2回のキャプチャの間隔(ミリ秒)。遅いマシンでは増やしてください
+- `settle`: 静止判定に使う3回のキャプチャの間隔(ミリ秒)。遅いマシンでは増やしてください
 - `paneCommand`: Claude Code のペインだと判定するフォアグラウンドプロセス名
 - `tmuxSocket`: 既定以外のサーバーで tmux を動かしている場合のソケット名またはパス(`tmux -L name` / `-S path`)。空なら既定サーバー
 - `tmuxBinary`: tmux が通常の探索先に無い場合の絶対パス
