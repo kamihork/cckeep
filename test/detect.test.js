@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decide, emptyState, readScreen, readPanel, DEFAULTS } from '../src/detect.js';
+import { BASE } from '../src/config.js';
 import { readFileSync } from 'node:fs';
 
 // Screens shaped like what Claude Code actually paints. The footer indicator and
@@ -50,6 +51,21 @@ test('an explicit disconnect is re-armed immediately', () => {
 
 test('the footer failure indicator counts as an explicit disconnect', () => {
   assert.equal(decide({ screen: FAILED_FOOTER }).action, 'rearm');
+});
+
+test('the wedge threshold clears Claude Code\'s own reconnect window', () => {
+  // The tests around this one derive their expectations from DEFAULTS.stuckLimit,
+  // so they pass for any value of it. This is the one that pins what the value
+  // has to mean: Claude Code 2.1.232 reconnects on its own for about 30 minutes,
+  // and cycling the bridge inside that window cuts short a reconnect that was
+  // going to succeed. The old default of 8 checks — two minutes — did exactly
+  // that once 2.1.232 shipped.
+  const windowMinutes = (DEFAULTS.stuckLimit * BASE.interval) / 60;
+  assert.ok(
+    windowMinutes >= 32,
+    `waits ${windowMinutes} minutes before calling the bridge wedged; Claude Code `
+      + 'reconnects for about 30, so this has to clear that with margin',
+  );
 });
 
 test('a pane retrying inside its own budget is not touched', () => {
