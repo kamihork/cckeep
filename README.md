@@ -4,7 +4,7 @@
   <h1>cckeep</h1>
 
   <p><strong>Keeps Claude Code Remote Control from silently going dead.</strong><br>
-  Remote Control retries for about 31 seconds and then gives up for good.<br>
+  Some disconnects still end with you walking back to your desk to type <code>/remote-control</code>.<br>
   <code>cckeep</code> notices, and re-arms the session — without touching one that's busy.</p>
 
   <p>
@@ -16,6 +16,10 @@
 
   <p><a href="https://kamihork.github.io/cckeep/">Website</a> | English | <a href="README.ja.md">日本語</a></p>
 </div>
+
+> **Read this first — Claude Code 2.1.232 (August 2026) moved the ground this tool stands on.**
+> Remote Control now keeps reconnecting for about 30 minutes after a network blip, and an interactive session retries for as long as an outage lasts. **The 31-second retry budget described under [The problem](#the-problem) is the behavior of earlier versions.**
+> What cckeep still covers on current Claude Code: the disconnects that end in a manual `/remote-control` — presence heartbeats failing for about 30 minutes, and HTTP 403 blocks lasting over 3 minutes.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/kamihork/cckeep/main/assets/demo.gif" width="880" alt="cckeep detecting a dead Remote Control link and re-arming it">
