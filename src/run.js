@@ -1,5 +1,5 @@
 import { decide, readScreen, readPanel } from './detect.js';
-import { decideLimit } from './limits.js';
+import { decideLimit, readLimit } from './limits.js';
 import { parsePsTable, isTargetPane } from './procs.js';
 import * as realTmux from './tmux.js';
 import { loadState, saveState, forPane, forLimit, prune, appendLog, acquireLock, releaseLock, markEarned } from './state.js';
@@ -10,7 +10,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const LIMIT_ACTIONS = new Set(['resume']);
 
 /** Reasons worth showing even though nothing was done, because they explain a long silence. */
-const LIMIT_REASONS = new Set(['limit-wait', 'limit-gave-up']);
+export const LIMIT_REASONS = new Set(['limit-wait', 'limit-gave-up']);
 
 /**
  * What to put back when a send is called off at the last moment. The counters
@@ -127,22 +127,28 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
     }
 
     // Re-read: the pane may have reconnected, opened a dialog, or had something
-    // typed into it while we waited.
-    const recheck = readScreen(tmux.capture(pane.id));
+    // typed into it while we waited. Kept raw as well, because the quota check
+    // below has to re-read the banner and not just the connection indicator.
+    const recheckRaw = tmux.capture(pane.id);
+    const recheck = readScreen(recheckRaw);
+    const limitStillThere = LIMIT_ACTIONS.has(action) ? Boolean(readLimit(recheckRaw)) : false;
 
-    // No action may type into a dialog or on top of a draft. Past that the two
-    // halves want different things: the panel step needs the panel still on
-    // screen, a re-arm needs the link still down — and a quota action does not
-    // care about the link at all, because a *connected* pane blocked on quota is
-    // precisely the case it exists for. Reusing the re-arm condition here would
-    // have made the resume fire only on disconnected sessions.
+    // No action may type into a dialog or on top of a draft, and every one of
+    // them re-verifies its own trigger: the panel step needs the panel still on
+    // screen, a re-arm needs the link still down, and a quota resume needs the
+    // banner still there. That last one is the whole point of re-reading — the
+    // idle check spends a couple of seconds, and the banner can leave the footer
+    // in that time, which would put the prompt into a live conversation.
+    //
+    // The quota branch is the one that ignores the connection indicator, because
+    // a *connected* pane blocked on quota is precisely the case it exists for.
     let stillSafe;
     if (action === 'confirm-panel') stillSafe = recheck.panel && !recheck.modal && recheck.composer !== 'draft';
-    else if (LIMIT_ACTIONS.has(action)) stillSafe = !recheck.modal && !recheck.panel && recheck.composer === 'empty';
+    else if (LIMIT_ACTIONS.has(action)) stillSafe = limitStillThere && !recheck.modal && !recheck.panel && recheck.composer === 'empty';
     else stillSafe = !recheck.connected && !recheck.modal && !recheck.panel && recheck.composer === 'empty';
 
     if (!stillSafe) {
-      const recovered = recheck.connected && !LIMIT_ACTIONS.has(action);
+      const recovered = LIMIT_ACTIONS.has(action) ? !limitStillThere : recheck.connected;
       abort(recovered ? 'recovered' : recheck.composer !== 'empty' ? 'composer-busy' : 'dialog');
       continue;
     }
@@ -161,10 +167,7 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
         panel = readPanel(tmux.capture(pane.id));
       }
       if (!panel || panel.focused !== panel.disconnect) {
-        result.action = 'none';
-        result.reason = 'panel-shape-changed';
-        state[pane.id] = { ...after, ...abortedCounters(before) };
-        results.push(result);
+        abort('panel-shape-changed');
         continue;
       }
       tmux.sendEnter(pane.id);

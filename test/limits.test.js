@@ -4,9 +4,14 @@ import assert from 'node:assert/strict';
 import { readLimit, decideLimit, emptyLimitState, LIMIT_DEFAULTS } from '../src/limits.js';
 
 /**
- * The banners, verbatim. Claude Code builds them as `You've hit your ${label}`
- * with the reset time appended, and the label set is fixed — so these strings
- * are the contract this module is written against.
+ * The banners, verbatim.
+ *
+ * These fixtures once carried a comment calling them "the contract this module
+ * is written against", which is backwards and hid a real bug: the detector was
+ * written against a shape Claude Code does not always print, the suite stayed
+ * green, and the feature silently never fired. The contract is whatever the
+ * product emits. REAL_BANNERS below is taken from the strings in the 2.1.239
+ * binary, and is the test that would have caught it.
  */
 const SESSION = "You've hit your session limit · resets 3pm\n> ";
 const WEEKLY = "You've hit your weekly limit · resets Aug 20\n> ";
@@ -47,13 +52,56 @@ test('trailing blank rows do not push the banner out of the footer', () => {
 });
 
 test('when two banners share the footer the newer one is the one answered', () => {
+  // Two *different* labels, so first-match and last-match give different
+  // answers. With the same label on both lines this assertion passed either
+  // way and tested nothing.
   const both = [
     "You've hit your session limit · resets 3pm",
     '> Continue where you left off.',
-    "You've hit your session limit · resets 5pm",
+    "You've hit your weekly limit · resets Aug 20",
     '> ',
   ].join('\n');
-  assert.equal(readLimit(both), 'session limit');
+  assert.equal(readLimit(both), 'weekly limit');
+});
+
+/**
+ * Read out of the installed 2.1.239 binary, not invented. The first version of
+ * BANNER_ALL required at least one character between "your" and "limit", so the
+ * bare form — which Claude Code emits by calling its own builder with no label
+ * — matched nothing, and neither did "You've reached your …" or the
+ * "<Label> reached" retry lines. The opt-in feature was dead for those cases
+ * while every test passed.
+ */
+const REAL_BANNERS = [
+  ["You've hit your limit · resets 3pm", 'limit'],
+  ["You've hit your session limit · resets 3pm", 'session limit'],
+  ["You've hit your weekly limit · resets Aug 20", 'weekly limit'],
+  ["You've hit your Opus limit", 'Opus limit'],
+  ["You've hit your fast limit", 'fast limit'],
+  ["You've reached your Fable 5 limit", 'Fable 5 limit'],
+  ['Session limit reached', 'Session limit'],
+  ['usage limit reached', 'usage limit'],
+];
+
+test('every banner shape Claude Code 2.1.239 actually prints is recognised', () => {
+  for (const [line, label] of REAL_BANNERS) {
+    assert.equal(readLimit(`prior output\n${line}\n> `), label, line);
+  }
+});
+
+/**
+ * A spend cap is not a window that refills. The backoff tops out around ten
+ * hours, so waiting could never clear one — it would only type the prompt into
+ * the pane until the breaker stopped it. Refused the way detect.js refuses an
+ * auth or plan wall.
+ */
+test('a spend cap is not treated as a window that time will fix', () => {
+  for (const line of [
+    "You've hit your monthly spend limit. Run /usage-credits to keep using Fable 5",
+    "You're out of usage credits. Switch to another model",
+  ]) {
+    assert.equal(readLimit(`prior output\n${line}\n> `), null, line);
+  }
 });
 
 /**
@@ -138,4 +186,37 @@ test('a pane with no banner is never acted on, whatever the stored state says', 
   const r = decideLimit({ screen: CLEAR, state: stale, now: 999999999, config: cfg() });
   assert.equal(r.action, 'none');
   assert.equal(r.reason, 'no-limit');
+});
+
+/**
+ * The breaker belongs to one outage. It used to be checked before the
+ * label-change branch, so a pane that had exhausted its attempts on a session
+ * window would refuse to act on a weekly one that came later — the feature
+ * turning itself off permanently, silently, on the pane that needed it most.
+ */
+test('an exhausted breaker does not condemn the next outage', () => {
+  const spent = { banner: 'session limit', waitUntil: 100, attempts: LIMIT_DEFAULTS.limitMaxAttempts };
+  const r = decideLimit({ screen: WEEKLY, state: spent, now: 200, config: cfg() });
+  assert.equal(r.reason, 'limit-wait');
+  assert.equal(r.state.attempts, 0, 'a new window starts on a fresh breaker');
+  assert.equal(r.state.banner, 'weekly limit');
+});
+
+/**
+ * tmux numbers panes from %0 again after its server restarts, so state keyed to
+ * %1 can meet a different session days later. Without this the expired wait
+ * would be spent on it the moment it showed a banner, having waited for nothing.
+ */
+test('a wait left far behind by a restart re-arms instead of resuming at once', () => {
+  const ancient = { banner: 'session limit', waitUntil: 1000, attempts: 2 };
+  const r = decideLimit({ screen: SESSION, state: ancient, now: 1000 + 86400, config: cfg() });
+  assert.equal(r.action, 'none');
+  assert.equal(r.reason, 'limit-wait');
+  assert.equal(r.state.attempts, 0);
+});
+
+test('a wait one poll past its deadline is still spent, not re-armed', () => {
+  const first = decideLimit({ screen: SESSION, state: emptyLimitState(), now: 1000, config: cfg() });
+  const r = decideLimit({ screen: SESSION, state: first.state, now: first.state.waitUntil + 15, config: cfg() });
+  assert.equal(r.action, 'resume', 'the normal case must not trip the staleness guard');
 });

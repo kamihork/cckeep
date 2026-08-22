@@ -43,7 +43,7 @@ const INTEGER = new Set([
  */
 const BOOLEAN = new Set(['limits']);
 
-const ENV = {
+export const ENV = {
   CCKEEP_INTERVAL: 'interval',
   CCKEEP_COOLDOWN: 'cooldown',
   CCKEEP_STUCK_LIMIT: 'stuckLimit',
@@ -95,6 +95,12 @@ export function loadConfig(overrides = {}) {
     // broken setting is a permanent loop rather than something that gives up.
     if (!String(merged.limitResumePrompt ?? '').trim()) {
       throw new Error('config: limitResumePrompt must not be empty when limits is on');
+    }
+    // send-keys -l delivers a literal newline, which the TUI reads as Enter: the
+    // first line would be submitted and the rest left sitting in the composer,
+    // where it then reads as a draft and blocks every later action on the pane.
+    if (/[\r\n]/.test(String(merged.limitResumePrompt))) {
+      throw new Error('config: limitResumePrompt must be a single line');
     }
   }
   for (const key of NUMERIC) {

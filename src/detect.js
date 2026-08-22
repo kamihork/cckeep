@@ -105,7 +105,7 @@ const COMPOSER = /^(?:│\s*)?(?:❯|>)\s?(.*?)\s*(?:│)?$/;
  * whole pane made such a session look connected, which then armed the
  * missing-indicator fallback and pointed it at a perfectly healthy session.
  */
-const FOOTER_LINES = 12;
+export const FOOTER_LINES = 12;
 
 /**
  * The indicator sits on the status line, one or two rows from the bottom — a

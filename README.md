@@ -101,6 +101,8 @@ A session also stops for a reason that has nothing to do with the connection: th
 
 Turn it on with `"limits": true`. cckeep then reads that banner the way it reads the connection indicator, waits, and types `limitResumePrompt` to pick the work back up. Every window is treated alike — session, weekly, or a single model's — because none of them can be hurried.
 
+A spend cap is not one of them. `You're out of usage credits` and `You've hit your monthly spend limit` are recognised and then left alone: the fix there is a payment or a model switch, and the backoff below tops out around ten hours, so waiting could never clear one. It would only type the prompt into your pane until the breaker stopped it.
+
 That wait is a backoff — 15 minutes, doubling to a two-hour ceiling — and not a reading of the `· resets 3pm` on the banner. That timestamp is localised prose, and a parser that misreads it either sleeps hours too long or resumes straight back into the same wall. Backing off is self-correcting: a resume that is too early fails, the banner comes back, and the next wait is twice as long. After `limitMaxAttempts` it stops and leaves the pane to you.
 
 On the defaults that adds up to six attempts spread over 7h45m, then giving up at 9h45m — enough to cross a five-hour session window, and **not** enough to cross a weekly one. If you want a weekly limit waited out rather than handed back to you, raise `limitMaxAttempts` and `limitBackoff` to match; the arithmetic is yours to choose, because a watchdog that types into a pane once a day for a week is a different proposition from one that gives up before dinner.

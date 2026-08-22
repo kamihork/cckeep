@@ -394,12 +394,43 @@ test('an empty resume prompt submits nothing, and does not loop forever', async 
   assert.equal(results[0].reason, 'no-prompt');
   assert.equal(loadState()['%1'].limit.attempts, 1, 'the refusal must consume an attempt');
 
+  // Stepped to each wait's own deadline, the way a real pass lands on it.
+  // Jumping an arbitrary distance instead would put the stored wait so far past
+  // its deadline that limits.js reads it as state left over from a previous
+  // tmux server and re-arms — which is correct, and would never let the breaker
+  // trip here even though it does in production.
   let last;
-  for (let i = 2; i < 12; i++) {
-    last = await runPass({ tmux, config: cfg, now: 1060 + i * 100000 });
+  for (let i = 0; i < 12; i++) {
+    last = await runPass({ tmux, config: cfg, now: loadState()['%1'].limit.waitUntil });
+    if (last.results[0].reason === 'limit-gave-up') break;
   }
   assert.deepEqual(tmux.sent, []);
   assert.equal(last.results[0].reason, 'limit-gave-up');
 });
 
 process.on('exit', () => rmSync(HOME, { recursive: true, force: true }));
+
+/**
+ * The resume is the only action that types a sentence into a real conversation,
+ * so it has to re-verify its own trigger like the others do. isIdle spends a
+ * couple of seconds capturing, and the banner can leave the footer in that time
+ * — the session was re-run from another window, or new output pushed it up.
+ * Without the re-read the prompt lands in a live, unlimited conversation.
+ */
+test('a resume is called off when the banner leaves before the last look', async () => {
+  const cfg = limitConfig({ limitBackoff: 60 });
+  // Three identical captures for the idle check, then a clear screen for the
+  // recheck that decides whether to send.
+  await runPass({ tmux: fakeTmux({ screens: [LIMIT_SESSION] }), config: cfg, now: 1000 });
+
+  // An acting pass captures five times: once to decide, three for the idle
+  // check, once to look again before typing. The banner is there for the first
+  // four and gone for the last.
+  const tmux = fakeTmux({
+    screens: [LIMIT_SESSION, LIMIT_SESSION, LIMIT_SESSION, LIMIT_SESSION, '> \n  /rc active'],
+  });
+  const { results, acted } = await runPass({ tmux, config: cfg, now: 1060 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, [], 'nothing may be typed once the banner is gone');
+  assert.equal(results[0].reason, 'recovered');
+});

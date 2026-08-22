@@ -75,3 +75,15 @@ test('CCKEEP_LIMITS=false turns it off rather than on', () => {
 });
 
 process.on('exit', () => rmSync(HOME, { recursive: true, force: true }));
+
+/**
+ * send-keys -l delivers a literal newline and the TUI reads it as Enter: the
+ * first line is submitted and the rest sits in the composer, where it reads as
+ * a draft and blocks every later action on that pane.
+ */
+test('a resume prompt with a newline in it is refused up front', () => {
+  assert.throws(
+    () => loadConfig({ limits: true, limitResumePrompt: 'Continue.\nAlso run the tests.' }),
+    /single line/,
+  );
+});

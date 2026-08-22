@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from 'node:fs';
 import { platform } from 'node:os';
-import { runPass } from '../src/run.js';
+import { runPass, LIMIT_REASONS } from '../src/run.js';
 import { loadConfig, configPath } from '../src/config.js';
 import { logPath, statePath, homeDir, claimNudge } from '../src/state.js';
 import * as tmux from '../src/tmux.js';
@@ -209,7 +209,11 @@ async function main() {
       for (;;) {
         const out = await runPass({ config, dryRun: opts.dryRun });
         for (const r of out.results) {
-          if (r.action !== 'none') console.log(`${new Date().toISOString().slice(11, 19)}  ${r.pane}  ${describe(r, t)}`);
+          // LIMIT_REASONS carry action 'none' but explain a silence measured in
+          // hours, which is exactly what the long-running mode has to account for.
+          if (r.action !== 'none' || LIMIT_REASONS.has(r.reason)) {
+            console.log(`${new Date().toISOString().slice(11, 19)}  ${r.pane}  ${describe(r, t)}`);
+          }
         }
         await new Promise((r) => setTimeout(r, config.interval * 1000));
       }

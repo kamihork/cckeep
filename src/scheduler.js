@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from '
 import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
 import { logPath } from './state.js';
+import { ENV } from './config.js';
 import { fileURLToPath } from 'node:url';
 
 export const LABEL = 'io.github.kamihork.cckeep';
@@ -39,9 +40,12 @@ function xml(value) {
  * you typed `enable` in, so a socket or tmux path set there is simply gone —
  * and the job then watches the wrong server, forever, in silence.
  */
-function inheritedEnv() {
+export function inheritedEnv() {
   const keep = {};
-  for (const key of ['CCKEEP_HOME', 'CCKEEP_TMUX_SOCKET', 'CCKEEP_TMUX']) {
+  // Driven off config.js's own map rather than a second hand-written list: the
+  // limits settings were added there and silently not here, so `cckeep enable`
+  // wrote a job that could never act on them while the README promised it did.
+  for (const key of ['CCKEEP_HOME', ...Object.keys(ENV)]) {
     if (process.env[key]) keep[key] = process.env[key];
   }
   return keep;
