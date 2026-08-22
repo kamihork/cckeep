@@ -1,9 +1,16 @@
 import { decide, readScreen, readPanel } from './detect.js';
+import { decideLimit, readLimit } from './limits.js';
 import { parsePsTable, isTargetPane } from './procs.js';
 import * as realTmux from './tmux.js';
-import { loadState, saveState, forPane, prune, appendLog, acquireLock, releaseLock, markEarned } from './state.js';
+import { loadState, saveState, forPane, forLimit, prune, appendLog, acquireLock, releaseLock, markEarned } from './state.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Actions that come from the quota rules rather than the Remote Control ones. */
+const LIMIT_ACTIONS = new Set(['resume']);
+
+/** Reasons worth showing even though nothing was done, because they explain a long silence. */
+export const LIMIT_REASONS = new Set(['limit-wait', 'limit-gave-up']);
 
 /**
  * What to put back when a send is called off at the last moment. The counters
@@ -63,8 +70,29 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
     if (!screen) continue;
 
     const before = forPane(state, pane.id);
-    const { action, reason, state: after } = decide({ screen, state: before, now, config });
+    const { action: rcAction, reason: rcReason, state: after } = decide({ screen, state: before, now, config });
     state[pane.id] = after;
+
+    let action = rcAction;
+    let reason = rcReason;
+
+    // Quota is only consulted when the link itself needs nothing. Both halves
+    // type into the same pane, and letting them act in the same pass would
+    // interleave a re-arm and a resume into one garbled line.
+    let limitBefore = null;
+    if (action === 'none' && config.limits) {
+      limitBefore = forLimit(state, pane.id);
+      const lim = decideLimit({ screen, state: limitBefore, now, config });
+      state[pane.id] = { ...state[pane.id], limit: lim.state };
+      if (lim.action !== 'none') {
+        action = lim.action;
+        reason = lim.reason;
+      } else if (LIMIT_REASONS.has(lim.reason)) {
+        // "connected" is true and useless while a pane sits blocked on quota for
+        // an hour; say what it is actually waiting for.
+        reason = lim.reason;
+      }
+    }
 
     const result = { pane: pane.label, id: pane.id, action, reason, signals: readScreen(screen) };
 
@@ -79,28 +107,49 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
       continue;
     }
 
-    // Both actions type into the pane, so both go through the same checks: the
-    // decision came from one capture, and anything could have happened since.
-    if (!(await isIdle(tmux, pane.id, config.settle))) {
+    // Every action types into the pane, so all of them go through the same
+    // checks: the decision came from one capture, and anything could have
+    // happened since.
+    const abort = (why) => {
       result.action = 'none';
-      result.reason = 'busy';
+      result.reason = why;
       state[pane.id] = { ...after, ...abortedCounters(before) };
+      // The quota attempt was never spent, so it must not be counted either. A
+      // pane that happens to be busy at every check would otherwise burn through
+      // limitMaxAttempts without a single prompt ever reaching it.
+      if (limitBefore) state[pane.id].limit = limitBefore;
       results.push(result);
+    };
+
+    if (!(await isIdle(tmux, pane.id, config.settle))) {
+      abort('busy');
       continue;
     }
 
     // Re-read: the pane may have reconnected, opened a dialog, or had something
-    // typed into it while we waited.
-    const recheck = readScreen(tmux.capture(pane.id));
-    const stillSafe =
-      action === 'confirm-panel'
-        ? recheck.panel && !recheck.modal && recheck.composer !== 'draft'
-        : !recheck.connected && !recheck.modal && !recheck.panel && recheck.composer === 'empty';
+    // typed into it while we waited. Kept raw as well, because the quota check
+    // below has to re-read the banner and not just the connection indicator.
+    const recheckRaw = tmux.capture(pane.id);
+    const recheck = readScreen(recheckRaw);
+    const limitStillThere = LIMIT_ACTIONS.has(action) ? Boolean(readLimit(recheckRaw)) : false;
+
+    // No action may type into a dialog or on top of a draft, and every one of
+    // them re-verifies its own trigger: the panel step needs the panel still on
+    // screen, a re-arm needs the link still down, and a quota resume needs the
+    // banner still there. That last one is the whole point of re-reading — the
+    // idle check spends a couple of seconds, and the banner can leave the footer
+    // in that time, which would put the prompt into a live conversation.
+    //
+    // The quota branch is the one that ignores the connection indicator, because
+    // a *connected* pane blocked on quota is precisely the case it exists for.
+    let stillSafe;
+    if (action === 'confirm-panel') stillSafe = recheck.panel && !recheck.modal && recheck.composer !== 'draft';
+    else if (LIMIT_ACTIONS.has(action)) stillSafe = limitStillThere && !recheck.modal && !recheck.panel && recheck.composer === 'empty';
+    else stillSafe = !recheck.connected && !recheck.modal && !recheck.panel && recheck.composer === 'empty';
+
     if (!stillSafe) {
-      result.action = 'none';
-      result.reason = recheck.connected ? 'recovered' : recheck.composer !== 'empty' ? 'composer-busy' : 'dialog';
-      state[pane.id] = { ...after, ...abortedCounters(before) };
-      results.push(result);
+      const recovered = LIMIT_ACTIONS.has(action) ? !limitStillThere : recheck.connected;
+      abort(recovered ? 'recovered' : recheck.composer !== 'empty' ? 'composer-busy' : 'dialog');
       continue;
     }
 
@@ -118,14 +167,27 @@ export async function runPass({ tmux = realTmux, config, dryRun = false, now = M
         panel = readPanel(tmux.capture(pane.id));
       }
       if (!panel || panel.focused !== panel.disconnect) {
-        result.action = 'none';
-        result.reason = 'panel-shape-changed';
-        state[pane.id] = { ...after, ...abortedCounters(before) };
-        results.push(result);
+        abort('panel-shape-changed');
         continue;
       }
       tmux.sendEnter(pane.id);
       appendLog(`${pane.label}: closing wedged bridge via panel`);
+    } else if (LIMIT_ACTIONS.has(action)) {
+      const text = String(config.limitResumePrompt ?? '').trim();
+      // loadConfig refuses an empty prompt when limits are on, so this only
+      // catches a caller that assembled its own config. Deliberately not routed
+      // through abort(): that rewinds the quota counters, and a condition that
+      // never clears would then loop forever instead of spending the breaker.
+      if (!text) {
+        result.action = 'none';
+        result.reason = 'no-prompt';
+        results.push(result);
+        continue;
+      }
+      tmux.sendText(pane.id, text);
+      await sleep(config.keyDelay ?? 1000);
+      tmux.sendEnter(pane.id);
+      appendLog(`${pane.label}: resume (${reason})`);
     } else {
       tmux.sendText(pane.id, '/remote-control');
       await sleep(config.keyDelay ?? 1000);

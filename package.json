@@ -1,7 +1,7 @@
 {
   "name": "cckeep",
-  "version": "0.6.1",
-  "description": "Keeps Claude Code Remote Control from silently going dead. Re-arms the disconnects that still need a manual /remote-control — local, tmux-native, zero dependencies.",
+  "version": "0.7.0",
+  "description": "Keeps Claude Code Remote Control from silently going dead. Re-arms the disconnects that still need a manual /remote-control, and picks the work back up when a usage window resets — local, tmux-native, zero dependencies.",
   "type": "module",
   "bin": {
     "cckeep": "bin/cckeep.js"

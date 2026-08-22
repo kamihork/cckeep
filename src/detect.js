@@ -105,7 +105,7 @@ const COMPOSER = /^(?:│\s*)?(?:❯|>)\s?(.*?)\s*(?:│)?$/;
  * whole pane made such a session look connected, which then armed the
  * missing-indicator fallback and pointed it at a perfectly healthy session.
  */
-const FOOTER_LINES = 12;
+export const FOOTER_LINES = 12;
 
 /**
  * The indicator sits on the status line, one or two rows from the bottom — a
@@ -115,8 +115,17 @@ const FOOTER_LINES = 12;
 const INDICATOR_LINES = 4;
 
 export const DEFAULTS = {
-  /** Consecutive checks stuck in "reconnecting" before we treat the bridge as wedged. */
-  stuckLimit: 8,
+  /**
+   * Consecutive checks stuck in "reconnecting" before we treat the bridge as
+   * wedged. Wall-clock is this times `interval`, so at the default 15 seconds
+   * it is 35 minutes — chosen to clear Claude Code's own reconnect window with
+   * margin. Claude Code 2.1.232 raised that window to about 30 minutes after a
+   * blip, and an interactive session now retries for as long as a network
+   * outage lasts. The old default of 8 (two minutes) was calibrated against a
+   * 31-second budget, and on a current Claude Code it cuts short reconnects
+   * that were going to succeed. Raise `interval` and this comes with it.
+   */
+  stuckLimit: 140,
   /** Re-arms allowed per outage. Reset only by seeing the link healthy again. */
   maxRearms: 3,
   /** Consecutive checks with no indicator at all before re-arming a pane that had one. */
@@ -162,16 +171,26 @@ function readIndicator(lines, window = INDICATOR_LINES) {
   return null;
 }
 
-export function readScreen(screen, footerLines = FOOTER_LINES) {
-  // `capture-pane` returns the whole pane, blank rows included, so a UI that
-  // does not fill the pane leaves the bottom padded with empty lines. Scanning
-  // the last N lines would then scan nothing but padding and see no indicator
-  // at all — a silent failure. Measure the footer from the last row that has
-  // something on it.
+/**
+ * A pane's rows with the bottom padding removed.
+ *
+ * `capture-pane` returns the whole pane, blank rows included, so a UI that does
+ * not fill the pane leaves the bottom padded with empty lines. Scanning the last
+ * N lines would then scan nothing but padding and see no indicator at all — a
+ * silent failure. Measure the footer from the last row that has something on it.
+ *
+ * Exported because limits.js reads its own banner out of the same footer, and
+ * two copies of this trimming would be two chances to lose the fix.
+ */
+export function trimmedLines(screen) {
   const all = String(screen).split('\n');
   let end = all.length;
   while (end > 0 && all[end - 1].trim() === '') end -= 1;
-  const lines = all.slice(0, end);
+  return all.slice(0, end);
+}
+
+export function readScreen(screen, footerLines = FOOTER_LINES) {
+  const lines = trimmedLines(screen);
 
   const footer = lines.slice(Math.max(0, lines.length - footerLines)).join('\n');
   const modalWindow = lines.slice(Math.max(0, lines.length - MODAL_LINES)).join('\n');
@@ -268,10 +287,13 @@ export function decide({ screen, state = emptyState(), now = 0, config = {} }) {
   let dead = null;
 
   if (s.retrying) {
-    // Claude Code's own retry budget is 5 attempts over roughly 31 seconds, and
-    // a healthy reconnect resolves well inside that. Sitting in "reconnecting"
-    // far past it is the wedge from anthropics/claude-code#34255, which never
-    // recovers on its own.
+    // Since 2.1.232 Claude Code reconnects on its own for about 30 minutes, so
+    // "reconnecting" is only worth acting on well past that. Two things look
+    // alike this far out: the wedge from anthropics/claude-code#34255, which is
+    // still open though unconfirmed against the reworked reconnect path, and a
+    // network outage that simply has not ended. Cycling the bridge cannot
+    // succeed during an outage either — it needs the network the pane is
+    // missing — so maxRearms is what stops this from retyping for hours.
     next.stuck += 1;
     if (next.stuck < cfg.stuckLimit) {
       return { action: 'none', reason: 'retrying', state: next };

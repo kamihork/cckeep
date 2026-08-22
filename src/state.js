@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, statSync, e
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { emptyState } from './detect.js';
+import { emptyLimitState } from './limits.js';
 
 export function homeDir() {
   return process.env.CCKEEP_HOME || join(homedir(), '.cckeep');
@@ -99,6 +100,17 @@ export function releaseLock() {
 
 export function forPane(state, paneId) {
   return { ...emptyState(), ...(state[paneId] || {}) };
+}
+
+/**
+ * The quota half of a pane's state, kept in a nested `limit` key.
+ *
+ * Nested rather than flattened alongside the Remote Control counters so that a
+ * state file written by an older cckeep — which has no `limit` key at all —
+ * simply starts from empty instead of half-populating the new rules.
+ */
+export function forLimit(state, paneId) {
+  return { ...emptyLimitState(), ...((state[paneId] || {}).limit || {}) };
 }
 
 /** Forget panes that no longer exist, so state.json cannot grow without bound. */

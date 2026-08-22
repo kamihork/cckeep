@@ -83,3 +83,31 @@ test('install refuses rather than scheduling a path that will vanish', () => {
   // the one failure mode this tool cannot have.
   assert.equal(isEphemeralPath(cliPathOfEphemeralExample), true);
 });
+
+/**
+ * inheritedEnv() kept a hand-written list that the limits settings were never
+ * added to, so `CCKEEP_LIMITS=1 cckeep enable` wrote a job that could not act
+ * on them — in the only mode the feature exists for, silently, while the README
+ * promised the opposite. It is driven off config.js's ENV map now, so this
+ * checks the two lists cannot drift again.
+ */
+test('every environment twin config.js knows about reaches the scheduled job', async () => {
+  const { ENV } = await import('../src/config.js');
+  const scheduler = await import('../src/scheduler.js');
+  const saved = {};
+  for (const key of Object.keys(ENV)) {
+    saved[key] = process.env[key];
+    process.env[key] = 'sentinel-' + key;
+  }
+  try {
+    const env = scheduler.inheritedEnv();
+    for (const key of Object.keys(ENV)) {
+      assert.equal(env[key], 'sentinel-' + key, `${key} must reach the scheduled job`);
+    }
+  } finally {
+    for (const key of Object.keys(ENV)) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  }
+});

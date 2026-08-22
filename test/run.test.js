@@ -287,4 +287,150 @@ test('each real send consumes one attempt from the breaker', async () => {
   }
 });
 
+// --- usage-limit recovery -------------------------------------------------
+// The rules themselves are covered in limits.test.js. What matters here is the
+// wiring: that the feature stays off until asked for, and that the resume goes
+// through exactly the same "is this pane safe to type into" gauntlet a re-arm
+// does.
+
+const LIMIT_SESSION = "You've hit your session limit \u00b7 resets 3pm\n> ";
+
+const limitConfig = (over = {}) => loadConfig({ settle: 1, keyDelay: 1, limits: true, ...over });
+
+test('a usage limit is ignored until limit recovery is turned on', async () => {
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
+  const { acted } = await runPass({ tmux, config: config(), now: 1000 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+});
+
+test('the pass that finds a limit types nothing', async () => {
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
+  const { results, acted } = await runPass({ tmux, config: limitConfig(), now: 1000 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+  assert.equal(results[0].reason, 'limit-wait');
+});
+
+test('the work is picked back up once the wait has expired', async () => {
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
+  const cfg = limitConfig({ limitBackoff: 60, limitResumePrompt: 'Pick it back up.' });
+  await runPass({ tmux, config: cfg, now: 1000 });
+  const { acted } = await runPass({ tmux, config: cfg, now: 1060 });
+  assert.equal(acted, 1);
+  assert.deepEqual(tmux.sent, ['Pick it back up.', '<Enter>']);
+});
+
+/**
+ * The link being healthy says nothing about quota, and the re-arm path refuses
+ * to act on a connected pane. Sharing that condition would have made the resume
+ * fire only on sessions that were *also* disconnected — which is to say, almost
+ * never.
+ */
+test('a healthy Remote Control link does not block a quota resume', async () => {
+  const screen = "You've hit your session limit \u00b7 resets 3pm\n> \n  /rc active";
+  const cfg = limitConfig({ limitBackoff: 60 });
+  const tmux = fakeTmux({ screens: [screen] });
+  await runPass({ tmux, config: cfg, now: 1000 });
+  const { acted } = await runPass({ tmux, config: cfg, now: 1060 });
+  assert.equal(acted, 1);
+  assert.deepEqual(tmux.sent, ['Continue where you left off.', '<Enter>']);
+});
+
+test('a busy pane is left alone, and the attempt is not spent', async () => {
+  const cfg = limitConfig({ limitBackoff: 60 });
+  await runPass({ tmux: fakeTmux({ screens: [LIMIT_SESSION] }), config: cfg, now: 1000 });
+
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION, `${LIMIT_SESSION}\nworking 1`, `${LIMIT_SESSION}\nworking 2`] });
+  const { results, acted } = await runPass({ tmux, config: cfg, now: 1060 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+  assert.equal(results[0].reason, 'busy');
+  assert.equal(loadState()['%1'].limit.attempts, 0, 'a call-off must not burn an attempt');
+});
+
+test('a dialog on screen holds off the resume', async () => {
+  const screen = `${LIMIT_SESSION}\nDo you want to proceed?\n\u276f 1. Yes\n  2. No\n> `;
+  const cfg = limitConfig({ limitBackoff: 60 });
+  await runPass({ tmux: fakeTmux({ screens: [screen] }), config: cfg, now: 1000 });
+  const tmux = fakeTmux({ screens: [screen] });
+  const { acted } = await runPass({ tmux, config: cfg, now: 1060 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+});
+
+test('an unsent draft is never typed over', async () => {
+  const screen = "You've hit your session limit \u00b7 resets 3pm\n> half a sentence";
+  const cfg = limitConfig({ limitBackoff: 60 });
+  await runPass({ tmux: fakeTmux({ screens: [screen] }), config: cfg, now: 1000 });
+  const tmux = fakeTmux({ screens: [screen] });
+  const { acted } = await runPass({ tmux, config: cfg, now: 1060 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+});
+
+test('--dry-run reports the resume without typing it', async () => {
+  const cfg = limitConfig({ limitBackoff: 60 });
+  await runPass({ tmux: fakeTmux({ screens: [LIMIT_SESSION] }), config: cfg, now: 1000 });
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
+  const { results } = await runPass({ tmux, config: cfg, dryRun: true, now: 1060 });
+  assert.equal(results[0].action, 'would-resume');
+  assert.deepEqual(tmux.sent, []);
+});
+
+/**
+ * loadConfig rejects an empty prompt outright, so this is a caller that built a
+ * config by hand. What matters is that the refusal spends the breaker instead of
+ * rewinding it: routed through abort(), a condition that never clears would loop
+ * every 15 seconds forever rather than giving up.
+ */
+test('an empty resume prompt submits nothing, and does not loop forever', async () => {
+  const cfg = { ...limitConfig({ limitBackoff: 60 }), limitResumePrompt: '   ' };
+  const tmux = fakeTmux({ screens: [LIMIT_SESSION] });
+  await runPass({ tmux, config: cfg, now: 1000 });
+  const { results, acted } = await runPass({ tmux, config: cfg, now: 1060 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, []);
+  assert.equal(results[0].reason, 'no-prompt');
+  assert.equal(loadState()['%1'].limit.attempts, 1, 'the refusal must consume an attempt');
+
+  // Stepped to each wait's own deadline, the way a real pass lands on it.
+  // Jumping an arbitrary distance instead would put the stored wait so far past
+  // its deadline that limits.js reads it as state left over from a previous
+  // tmux server and re-arms — which is correct, and would never let the breaker
+  // trip here even though it does in production.
+  let last;
+  for (let i = 0; i < 12; i++) {
+    last = await runPass({ tmux, config: cfg, now: loadState()['%1'].limit.waitUntil });
+    if (last.results[0].reason === 'limit-gave-up') break;
+  }
+  assert.deepEqual(tmux.sent, []);
+  assert.equal(last.results[0].reason, 'limit-gave-up');
+});
+
 process.on('exit', () => rmSync(HOME, { recursive: true, force: true }));
+
+/**
+ * The resume is the only action that types a sentence into a real conversation,
+ * so it has to re-verify its own trigger like the others do. isIdle spends a
+ * couple of seconds capturing, and the banner can leave the footer in that time
+ * — the session was re-run from another window, or new output pushed it up.
+ * Without the re-read the prompt lands in a live, unlimited conversation.
+ */
+test('a resume is called off when the banner leaves before the last look', async () => {
+  const cfg = limitConfig({ limitBackoff: 60 });
+  // Three identical captures for the idle check, then a clear screen for the
+  // recheck that decides whether to send.
+  await runPass({ tmux: fakeTmux({ screens: [LIMIT_SESSION] }), config: cfg, now: 1000 });
+
+  // An acting pass captures five times: once to decide, three for the idle
+  // check, once to look again before typing. The banner is there for the first
+  // four and gone for the last.
+  const tmux = fakeTmux({
+    screens: [LIMIT_SESSION, LIMIT_SESSION, LIMIT_SESSION, LIMIT_SESSION, '> \n  /rc active'],
+  });
+  const { results, acted } = await runPass({ tmux, config: cfg, now: 1060 });
+  assert.equal(acted, 0);
+  assert.deepEqual(tmux.sent, [], 'nothing may be typed once the banner is gone');
+  assert.equal(results[0].reason, 'recovered');
+});

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from 'node:fs';
 import { platform } from 'node:os';
-import { runPass } from '../src/run.js';
+import { runPass, LIMIT_REASONS } from '../src/run.js';
 import { loadConfig, configPath } from '../src/config.js';
 import { logPath, statePath, homeDir, claimNudge } from '../src/state.js';
 import * as tmux from '../src/tmux.js';
@@ -38,6 +38,11 @@ OPTIONS
 Remote Control retries 5 times over ~31 seconds and then gives up for good.
 cckeep watches tmux panes running Claude Code and types /remote-control
 into the ones that went dead — never into one that is busy or showing a dialog.
+
+Usage-limit recovery is a separate, opt-in job: set "limits": true in
+~/.cckeep/config.json and cckeep also picks a session back up once the
+quota window that stopped it has refilled. Off by default, because it
+types a prompt into a real conversation.
 `;
 
 function parseArgs(argv) {
@@ -110,6 +115,9 @@ const REASON_KEY = {
   unavailable: 'unavailable',
   'gave-up': 'gaveUp',
   recovered: 'recovered',
+  'limit-wait': 'limitWait',
+  'limit-gave-up': 'limitGaveUp',
+  'no-prompt': 'noPrompt',
 };
 
 function describe(result, t) {
@@ -117,6 +125,8 @@ function describe(result, t) {
   if (result.action === 'confirm-panel') return t.confirmed;
   if (result.action === 'would-rearm') return `${t.wouldRearm} (${result.reason})`;
   if (result.action === 'would-confirm-panel') return t.wouldConfirm;
+  if (result.action === 'resume') return t.resumed;
+  if (result.action === 'would-resume') return t.wouldResume;
   return t[REASON_KEY[result.reason]] ?? result.reason;
 }
 
@@ -199,7 +209,11 @@ async function main() {
       for (;;) {
         const out = await runPass({ config, dryRun: opts.dryRun });
         for (const r of out.results) {
-          if (r.action !== 'none') console.log(`${new Date().toISOString().slice(11, 19)}  ${r.pane}  ${describe(r, t)}`);
+          // LIMIT_REASONS carry action 'none' but explain a silence measured in
+          // hours, which is exactly what the long-running mode has to account for.
+          if (r.action !== 'none' || LIMIT_REASONS.has(r.reason)) {
+            console.log(`${new Date().toISOString().slice(11, 19)}  ${r.pane}  ${describe(r, t)}`);
+          }
         }
         await new Promise((r) => setTimeout(r, config.interval * 1000));
       }
@@ -241,6 +255,9 @@ async function main() {
         { key: 'tmuxServer', label: 'tmux server', value: hasServer },
         { key: 'tmuxSocket', label: 'tmux socket', value: config.tmuxSocket || null },
         { key: 'claudePanes', label: 'claude panes', value: claudePanes.length },
+        // A plain string, not a boolean: the boolean renderer prints "missing"
+        // for false, which reads as breakage rather than as a setting left off.
+        { key: 'limitRecovery', label: 'limit recovery', value: config.limits ? 'on' : 'off' },
         { key: 'scheduler', label: 'scheduler', value: scheduler.isInstalled() },
         { key: 'scheduledCommand', label: t.scheduledPath, value: cli },
         { key: 'scheduledCommandExists', label: null, value: cli ? existsSync(cli) : null },
