@@ -115,8 +115,17 @@ const FOOTER_LINES = 12;
 const INDICATOR_LINES = 4;
 
 export const DEFAULTS = {
-  /** Consecutive checks stuck in "reconnecting" before we treat the bridge as wedged. */
-  stuckLimit: 8,
+  /**
+   * Consecutive checks stuck in "reconnecting" before we treat the bridge as
+   * wedged. Wall-clock is this times `interval`, so at the default 15 seconds
+   * it is 35 minutes — chosen to clear Claude Code's own reconnect window with
+   * margin. Claude Code 2.1.232 raised that window to about 30 minutes after a
+   * blip, and an interactive session now retries for as long as a network
+   * outage lasts. The old default of 8 (two minutes) was calibrated against a
+   * 31-second budget, and on a current Claude Code it cuts short reconnects
+   * that were going to succeed. Raise `interval` and this comes with it.
+   */
+  stuckLimit: 140,
   /** Re-arms allowed per outage. Reset only by seeing the link healthy again. */
   maxRearms: 3,
   /** Consecutive checks with no indicator at all before re-arming a pane that had one. */
@@ -268,10 +277,13 @@ export function decide({ screen, state = emptyState(), now = 0, config = {} }) {
   let dead = null;
 
   if (s.retrying) {
-    // Claude Code's own retry budget is 5 attempts over roughly 31 seconds, and
-    // a healthy reconnect resolves well inside that. Sitting in "reconnecting"
-    // far past it is the wedge from anthropics/claude-code#34255, which never
-    // recovers on its own.
+    // Since 2.1.232 Claude Code reconnects on its own for about 30 minutes, so
+    // "reconnecting" is only worth acting on well past that. Two things look
+    // alike this far out: the wedge from anthropics/claude-code#34255, which is
+    // still open though unconfirmed against the reworked reconnect path, and a
+    // network outage that simply has not ended. Cycling the bridge cannot
+    // succeed during an outage either — it needs the network the pane is
+    // missing — so maxRearms is what stops this from retyping for hours.
     next.stuck += 1;
     if (next.stuck < cfg.stuckLimit) {
       return { action: 'none', reason: 'retrying', state: next };
