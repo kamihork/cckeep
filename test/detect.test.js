@@ -451,6 +451,39 @@ function paneWithNotice(notice) {
   ].join('\n');
 }
 
+test('a disconnect notice quoted just above the composer does not trigger a re-arm', () => {
+  // The same sentence as "a disconnect notice quoted in the conversation does
+  // not trigger a re-arm", three rows up instead of twenty. Twenty put it
+  // outside the footer window, so that test passed on the distance rather than
+  // on the wording — and the pane a user of this tool actually has in front of
+  // them is this one: they asked what the failure looks like, and the answer
+  // is still on screen.
+  const screen = [
+    'user: what does it look like when the bridge drops?',
+    '',
+    'assistant: the footer stops showing /rc and you get a',
+    'Remote Control disconnected notice in its place.',
+    '─'.repeat(40),
+    '❯ ',
+    '─'.repeat(40),
+    '  [Opus 5] proj | ctx 9%',
+  ].join('\n');
+  assert.equal(readScreen(screen).failed, false);
+  const out = decide({ screen, state: { ...emptyState(), seen: true } });
+  assert.equal(out.action, 'none');
+  assert.equal(out.reason, 'waiting');
+});
+
+test('the real notification on its own row still counts', () => {
+  // The guard above must not cost the case it exists for: Claude Code prints
+  // the notice on a row of its own, under an icon, right above the composer.
+  const screen = paneWithNotice('Remote Control disconnected · /remote-control');
+  assert.equal(readScreen(screen).failed, true);
+  const out = decide({ screen, state: { ...emptyState(), seen: true } });
+  assert.equal(out.action, 'rearm');
+  assert.equal(out.reason, 'disconnected');
+});
+
 test('an unavailability reply stops the chase entirely', () => {
   const screen = paneWithNotice('/remote-control is available with Claude for Enterprise \u2014 ask your admin about migrating from API-key access.');
   const out = decide({ screen, state: { ...emptyState(), seen: true, miss: 3 }, now: 1000 });

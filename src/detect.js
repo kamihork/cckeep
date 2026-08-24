@@ -20,8 +20,19 @@ const RC_INDICATOR = /(?:^|\s)\/rc(?:\s+(active|reconnecting|failed))?(?:\s*[\u0
 /** Lines a user types into; they may well contain `/rc` themselves. */
 const INPUT_LINE = /^[❯>]/;
 
-/** The notification Claude Code prints when it has given up for good. */
-const FAILED_NOTICE = /Remote Control disconnected|Remote Control failed/;
+/**
+ * The notification Claude Code prints when it has given up for good.
+ *
+ * It has to be the whole of its own row, not a phrase inside a sentence. The
+ * footer window is twelve rows so the real notice — printed under the
+ * transcript, above the composer — is read; that same width also admits the
+ * tail of the conversation, and a session where the failure is being discussed
+ * ("you get a Remote Control disconnected notice in its place") then reads as
+ * failed and is typed into. A leading icon, indent or rule is fine because
+ * none of them are prose; a word before or after the phrase is not, save for
+ * the `· /remote-control` hint Claude Code appends to the real one.
+ */
+const FAILED_NOTICE = /^[^\p{L}\n]*Remote Control (?:disconnected|failed)[^\p{L}\n]*(?:[·|][^\n]{0,40})?$/mu;
 
 /**
  * Replies meaning Remote Control cannot work here at all — wrong auth, wrong
